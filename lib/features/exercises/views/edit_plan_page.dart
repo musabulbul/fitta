@@ -81,161 +81,181 @@ class _EditPlanPageState extends State<EditPlanPage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: const FittaAppBar(title: 'Plan Düzenle'),
-      body: Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: categories
-                  .map(
-                    (c) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(c),
-                        selected: selectedCategory == c,
-                        onSelected: (_) {
-                          setState(() => selectedCategory = c);
-                          _loadExercises();
-                        },
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'Egzersiz ara',
-                prefixIcon: Icon(CupertinoIcons.search),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                const Text('Listede yok mu?'),
-                const Spacer(),
-                OutlinedButton.icon(
-                  icon: const Icon(CupertinoIcons.pencil),
-                  label: const Text('Manuel ekle'),
-                  onPressed: _openManualAddSheet,
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Plan ismi (opsiyonel)'),
-                TextField(
-                  controller: _planNameController,
-                  decoration: const InputDecoration(
-                    hintText: 'Örn: Push/Pull/Legs',
-                  ),
-                ),
-                AppSpacing.vSm,
-                const Text('Günler'),
-                Wrap(
-                  spacing: 8,
-                  children: ExerciseRepository.weekDayKeys.map((day) {
-                    final label = ExerciseRepository.weekDayLabels[day] ?? day.toUpperCase();
-                    final selected = _selectedDays[day] ?? false;
-                    return FilterChip(
-                      label: Text(label),
-                      selected: selected,
-                      onSelected: (val) => setState(() => _selectedDays[day] = val),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          AppSpacing.vSm,
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _exercises.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('Egzersiz bulunamadı'),
-                            AppSpacing.vSm,
-                            OutlinedButton.icon(
-                              icon: const Icon(CupertinoIcons.pencil),
-                              label: const Text('Manuel ekle'),
-                              onPressed: _openManualAddSheet,
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadExercises,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          itemCount: _exercises.length,
-                          itemBuilder: (context, index) {
-                            final exercise = _exercises[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                          child: FittaCard(
-                            child: ListTile(
-                              title: Text(exercise.name),
-                              subtitle: Text(exercise.category),
-                              trailing: IconButton(
-                                icon: const Icon(CupertinoIcons.add_circled_solid),
-                                onPressed: () => _openBottomSheet(exercise),
+      body: RefreshIndicator(
+        onRefresh: _loadExercises,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: categories
+                          .map(
+                            (c) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(c),
+                                selected: selectedCategory == c,
+                                onSelected: (_) {
+                                  setState(() => selectedCategory = c);
+                                  _loadExercises();
+                                },
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          )
+                          .toList(),
                     ),
                   ),
-          ),
-          if (_planned.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Plana eklenenler (${_planned.length})',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  AppSpacing.vSm,
-                  ..._planned.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: FittaCard(
-                        child: ListTile(
-                          title: Text(p.name),
-                          subtitle: Text(
-                            p.type == 'time'
-                                ? '${p.category} • ${p.sets} x ${p.seconds ?? p.reps} sn'
-                                : '${p.category} • ${p.sets} x ${p.reps}',
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(CupertinoIcons.trash),
-                            onPressed: () => setState(
-                              () => _planned.removeWhere((e) => e.exerciseId == p.exerciseId),
-                            ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        hintText: 'Egzersiz ara',
+                        prefixIcon: Icon(CupertinoIcons.search),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Text('Listede yok mu?'),
+                        const Spacer(),
+                        OutlinedButton.icon(
+                          icon: const Icon(CupertinoIcons.pencil),
+                          label: const Text('Manuel ekle'),
+                          onPressed: _openManualAddSheet,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Plan ismi (opsiyonel)'),
+                        TextField(
+                          controller: _planNameController,
+                          decoration: const InputDecoration(
+                            hintText: 'Örn: Push/Pull/Legs',
                           ),
                         ),
-                      ),
+                        AppSpacing.vSm,
+                        const Text('Günler'),
+                        Wrap(
+                          spacing: 8,
+                          children: ExerciseRepository.weekDayKeys.map((day) {
+                            final label = ExerciseRepository.weekDayLabels[day] ??
+                                day.toUpperCase();
+                            final selected = _selectedDays[day] ?? false;
+                            return FilterChip(
+                              label: Text(label),
+                              selected: selected,
+                              onSelected: (val) =>
+                                  setState(() => _selectedDays[day] = val),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ),
                   ),
+                  AppSpacing.vSm,
                 ],
               ),
             ),
-        ],
+            if (_loading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_exercises.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Egzersiz bulunamadı'),
+                      AppSpacing.vSm,
+                      OutlinedButton.icon(
+                        icon: const Icon(CupertinoIcons.pencil),
+                        label: const Text('Manuel ekle'),
+                        onPressed: _openManualAddSheet,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final exercise = _exercises[index];
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: FittaCard(
+                        child: ListTile(
+                          title: Text(exercise.name),
+                          subtitle: Text(exercise.category),
+                          trailing: IconButton(
+                            icon: const Icon(CupertinoIcons.add_circled_solid),
+                            onPressed: () => _openBottomSheet(exercise),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  childCount: _exercises.length,
+                ),
+              ),
+            if (_planned.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Plana eklenenler (${_planned.length})',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      AppSpacing.vSm,
+                      ..._planned.map(
+                        (p) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: FittaCard(
+                            child: ListTile(
+                              title: Text(p.name),
+                              subtitle: Text(
+                                p.type == 'time'
+                                    ? '${p.category} • ${p.sets} x ${p.seconds ?? p.reps} sn'
+                                    : '${p.category} • ${p.sets} x ${p.reps}',
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(CupertinoIcons.trash),
+                                onPressed: () => setState(
+                                  () => _planned.removeWhere(
+                                      (e) => e.exerciseId == p.exerciseId),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
