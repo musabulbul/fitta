@@ -55,41 +55,69 @@ class WeightController extends GetxController {
 
   Future<void> saveTodayEntry() async {
     final parsedWeight = double.tryParse(weight.value);
-    if (parsedWeight == null) {
-      Get.snackbar('Eksik bilgi', 'Lütfen kilo değerini girin', snackPosition: SnackPosition.BOTTOM);
+    if (parsedWeight == null || parsedWeight <= 0) {
+      Get.snackbar('Geçersiz değer', 'Lütfen geçerli bir kilo değeri girin',
+          snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
-    final parsedHeight = _parseOrFallback(height.value, lastEntry.value?.height);
-    final parsedWaist = _parseOrFallback(waist.value, lastEntry.value?.waist);
-    final parsedHip = _parseOrFallback(hip.value, lastEntry.value?.hip);
-    final parsedNeck = _parseOrFallback(neck.value, lastEntry.value?.neck);
-    final genderValue = (gender.value.isNotEmpty ? gender.value : lastEntry.value?.gender) ?? 'male';
+    // We want to fallback to the values of the entry we are about to update (if it exists)
+    // or the last known entry if it's a fresh update for today.
+    // Since we fetch `existingEntry` later, we need to restructure this slightly or accept that `lastEntry`
+    // is usually the correct fallback.
+    // However, strictly speaking, `lastEntry` might be yesterday's data. If we edit today's entry,
+    // we should use today's existing values as fallback for empty fields.
 
-    final bodyFat = (parsedHeight != null && parsedWaist != null && parsedNeck != null)
-        ? calculateBodyFat(
-            gender: genderValue,
-            height: parsedHeight,
-            waist: parsedWaist,
-            hip: parsedHip,
-            neck: parsedNeck,
-          )
-        : null;
-
-    final entry = WeightEntry(
-      id: '',
-      date: DateTime.now(),
-      weight: parsedWeight,
-      height: parsedHeight,
-      waist: parsedWaist,
-      hip: parsedHip,
-      neck: parsedNeck,
-      gender: genderValue,
-      bodyFatPercent: bodyFat,
-    );
-
+    // To do this correctly, we should fetch existingEntry *first*.
     isLoading.value = true;
     try {
+      final today = DateTime.now();
+      final existingEntry = await repository.getEntryByDate(userId, today);
+
+      // Determine fallback source: existingEntry (today) -> lastEntry (previous)
+      final fallbackEntry = existingEntry ?? lastEntry.value;
+
+      final parsedHeight = _parseOrFallback(height.value, fallbackEntry?.height);
+      final parsedWaist = _parseOrFallback(waist.value, fallbackEntry?.waist);
+      final parsedHip = _parseOrFallback(hip.value, fallbackEntry?.hip);
+      final parsedNeck = _parseOrFallback(neck.value, fallbackEntry?.neck);
+      final genderValue =
+          (gender.value.isNotEmpty ? gender.value : fallbackEntry?.gender) ??
+              'male';
+
+      if ((parsedHeight != null && parsedHeight <= 0) ||
+          (parsedWaist != null && parsedWaist <= 0) ||
+          (parsedHip != null && parsedHip <= 0) ||
+          (parsedNeck != null && parsedNeck <= 0)) {
+        Get.snackbar('Geçersiz değer', 'Ölçü değerleri 0\'dan büyük olmalıdır',
+            snackPosition: SnackPosition.BOTTOM);
+        isLoading.value = false;
+        return;
+      }
+
+      final bodyFat =
+          (parsedHeight != null && parsedWaist != null && parsedNeck != null)
+              ? calculateBodyFat(
+                  gender: genderValue,
+                  height: parsedHeight,
+                  waist: parsedWaist,
+                  hip: parsedHip,
+                  neck: parsedNeck,
+                )
+              : null;
+
+      final entry = WeightEntry(
+        id: existingEntry?.id ?? '',
+        date: existingEntry?.date ?? today,
+        weight: parsedWeight,
+        height: parsedHeight,
+        waist: parsedWaist,
+        hip: parsedHip,
+        neck: parsedNeck,
+        gender: genderValue,
+        bodyFatPercent: bodyFat,
+      );
+
       await repository.addEntry(userId, entry);
       lastEntry.value = entry;
       Get.snackbar('Kaydedildi', 'Güncel kilo ve ölçüler kaydedildi',
