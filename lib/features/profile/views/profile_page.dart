@@ -9,6 +9,7 @@ import 'package:fitta/core/widgets/fitta_card.dart';
 import 'package:fitta/core/widgets/primary_button.dart';
 import 'package:fitta/features/sharing/views/sharing_page.dart';
 import 'package:fitta/features/admin/views/admin_exercise_panel_page.dart';
+import 'package:fitta/features/packages/views/packages_page.dart';
 import 'package:fitta/features/auth/auth_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -62,6 +63,14 @@ class ProfilePage extends StatelessWidget {
                   subtitle: const Text('XLSX ile global egzersizleri yönet'),
                   trailing: const Icon(CupertinoIcons.forward),
                   onTap: () => Get.to(() => const AdminExercisePanelPage()),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(CupertinoIcons.cube_box_fill, color: theme.colorScheme.primary),
+                  title: const Text('Hazır Paketlerim'),
+                  subtitle: const Text('Antrenman paketleri oluştur ve gönder'),
+                  trailing: const Icon(CupertinoIcons.forward),
+                  onTap: () => Get.to(() => const PackagesPage()),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
