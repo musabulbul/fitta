@@ -79,6 +79,9 @@ class _EditPlanPageState extends State<EditPlanPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSearching =
+        _searchController.text.isNotEmpty || selectedCategory != 'Tümü';
+
     return Scaffold(
       appBar: const FittaAppBar(title: 'Plan Düzenle'),
       body: RefreshIndicator(
@@ -121,21 +124,22 @@ class _EditPlanPageState extends State<EditPlanPage> {
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        const Text('Listede yok mu?'),
-                        const Spacer(),
-                        OutlinedButton.icon(
-                          icon: const Icon(CupertinoIcons.pencil),
-                          label: const Text('Manuel ekle'),
-                          onPressed: _openManualAddSheet,
-                        ),
-                      ],
+                  if (isSearching)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Text('Listede yok mu?'),
+                          const Spacer(),
+                          OutlinedButton.icon(
+                            icon: const Icon(CupertinoIcons.pencil),
+                            label: const Text('Manuel ekle'),
+                            onPressed: _openManualAddSheet,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -172,51 +176,54 @@ class _EditPlanPageState extends State<EditPlanPage> {
                 ],
               ),
             ),
-            if (_loading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_exercises.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Egzersiz bulunamadı'),
-                      AppSpacing.vSm,
-                      OutlinedButton.icon(
-                        icon: const Icon(CupertinoIcons.pencil),
-                        label: const Text('Manuel ekle'),
-                        onPressed: _openManualAddSheet,
-                      ),
-                    ],
+            if (isSearching) ...[
+              if (_loading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_exercises.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Egzersiz bulunamadı'),
+                        AppSpacing.vSm,
+                        OutlinedButton.icon(
+                          icon: const Icon(CupertinoIcons.pencil),
+                          label: const Text('Manuel ekle'),
+                          onPressed: _openManualAddSheet,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final exercise = _exercises[index];
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: FittaCard(
-                        child: ListTile(
-                          title: Text(exercise.name),
-                          subtitle: Text(exercise.category),
-                          trailing: IconButton(
-                            icon: const Icon(CupertinoIcons.add_circled_solid),
-                            onPressed: () => _openBottomSheet(exercise),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final exercise = _exercises[index];
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: FittaCard(
+                          child: ListTile(
+                            title: Text(exercise.name),
+                            subtitle: Text(exercise.category),
+                            trailing: IconButton(
+                              icon:
+                                  const Icon(CupertinoIcons.add_circled_solid),
+                              onPressed: () => _openBottomSheet(exercise),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                  childCount: _exercises.length,
+                      );
+                    },
+                    childCount: _exercises.length,
+                  ),
                 ),
-              ),
-            if (_planned.isNotEmpty)
+            ],
+            if (!isSearching || _planned.isNotEmpty)
               SliverToBoxAdapter(
                 child: Container(
                   width: double.infinity,
@@ -224,31 +231,55 @@ class _EditPlanPageState extends State<EditPlanPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Plana eklenenler (${_planned.length})',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      AppSpacing.vSm,
-                      ..._planned.map(
-                        (p) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: FittaCard(
-                            child: ListTile(
-                              title: Text(p.name),
-                              subtitle: Text(
-                                p.type == 'time'
-                                    ? '${p.category} • ${p.sets} x ${p.seconds ?? p.reps} sn'
-                                    : '${p.category} • ${p.sets} x ${p.reps}',
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(CupertinoIcons.trash),
-                                onPressed: () => setState(
-                                  () => _planned.removeWhere(
-                                      (e) => e.exerciseId == p.exerciseId),
+                      if (!isSearching && _planned.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 32),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                const Icon(CupertinoIcons.square_list,
+                                    size: 48, color: Colors.grey),
+                                AppSpacing.vSm,
+                                Text(
+                                  'Planınız boş.\nEgzersiz arayarak eklemeye başlayın.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium
+                                      ?.copyWith(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else ...[
+                        Text(
+                            isSearching
+                                ? 'Plana eklenenler (${_planned.length})'
+                                : 'Plan İçeriği (${_planned.length})',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        AppSpacing.vSm,
+                        ..._planned.map(
+                          (p) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: FittaCard(
+                              child: ListTile(
+                                title: Text(p.name),
+                                subtitle: Text(
+                                  p.type == 'time'
+                                      ? '${p.category} • ${p.sets} x ${p.seconds ?? p.reps} sn'
+                                      : '${p.category} • ${p.sets} x ${p.reps}',
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(CupertinoIcons.trash),
+                                  onPressed: () => setState(
+                                    () => _planned.removeWhere(
+                                        (e) => e.exerciseId == p.exerciseId),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
