@@ -81,13 +81,14 @@ class ProfilePage extends StatelessWidget {
                 AppSpacing.vMd,
                 PrimaryButton(
                   label: 'Çıkış',
-                  icon: Icon(CupertinoIcons.square_arrow_right, size: 18),
+                  icon: const Icon(CupertinoIcons.square_arrow_right, size: 18),
                   onPressed: () async {
-                    final auth = Get.isRegistered<AuthController>()
-                        ? Get.find<AuthController>()
-                        : Get.put(AuthController());
+                    final auth = Get.find<AuthController>();
                     await auth.signOut();
-                    await FirebaseAuth.instance.signOut();
+                    // FirebaseAuth signOut is already called in AuthController.signOut, but keeping it safe
+                    if (FirebaseAuth.instance.currentUser != null) {
+                      await FirebaseAuth.instance.signOut();
+                    }
                     Get.offAll(() => const AuthPage());
                   },
                 ),

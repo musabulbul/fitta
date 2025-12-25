@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'core/theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'core/bindings/initial_binding.dart';
 import 'features/auth/auth_gate.dart';
 import 'shell.dart';
 
@@ -24,6 +25,7 @@ class FittaApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'Fitta',
       debugShowCheckedModeBanner: false,
+      initialBinding: InitialBinding(),
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,

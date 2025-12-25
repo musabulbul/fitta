@@ -24,7 +24,7 @@ class _AuthPageState extends State<AuthPage> {
   @override
   void initState() {
     super.initState();
-    authController = Get.put(AuthController());
+    authController = Get.find<AuthController>();
   }
 
   @override
