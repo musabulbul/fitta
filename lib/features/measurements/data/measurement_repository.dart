@@ -16,7 +16,7 @@ class MeasurementRepository {
         await _entries(userId).orderBy('date', descending: true).limit(1).get();
     if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
-    return MeasurementEntry.fromMap({'id': doc.id, ...doc.data()});
+    return MeasurementEntry.fromMap({...doc.data(), 'id': doc.id});
   }
 
   Future<MeasurementEntry?> getEntryByDate(String userId, DateTime date) async {
@@ -31,7 +31,7 @@ class MeasurementRepository {
 
     if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
-    return MeasurementEntry.fromMap({'id': doc.id, ...doc.data()});
+    return MeasurementEntry.fromMap({...doc.data(), 'id': doc.id});
   }
 
   Future<void> addEntry(String userId, MeasurementEntry entry) async {
@@ -44,7 +44,7 @@ class MeasurementRepository {
         .orderBy('date', descending: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((doc) => MeasurementEntry.fromMap({'id': doc.id, ...doc.data()}))
+            .map((doc) => MeasurementEntry.fromMap({...doc.data(), 'id': doc.id}))
             .toList());
   }
 }

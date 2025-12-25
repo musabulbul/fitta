@@ -56,8 +56,7 @@ class WeightController extends GetxController {
   Future<void> saveTodayEntry() async {
     final parsedWeight = double.tryParse(weight.value);
     if (parsedWeight == null || parsedWeight <= 0) {
-      Get.snackbar('Geçersiz değer', 'Lütfen geçerli bir kilo değeri girin',
-          snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Geçersiz değer', 'Lütfen geçerli bir kilo değeri girin');
       return;
     }
 
@@ -89,8 +88,7 @@ class WeightController extends GetxController {
           (parsedWaist != null && parsedWaist <= 0) ||
           (parsedHip != null && parsedHip <= 0) ||
           (parsedNeck != null && parsedNeck <= 0)) {
-        Get.snackbar('Geçersiz değer', 'Ölçü değerleri 0\'dan büyük olmalıdır',
-            snackPosition: SnackPosition.BOTTOM);
+        _showSnackbar('Geçersiz değer', 'Ölçü değerleri 0\'dan büyük olmalıdır');
         isLoading.value = false;
         return;
       }
@@ -120,10 +118,9 @@ class WeightController extends GetxController {
 
       await repository.addEntry(userId, entry);
       lastEntry.value = entry;
-      Get.snackbar('Kaydedildi', 'Güncel kilo ve ölçüler kaydedildi',
-          snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Kaydedildi', 'Güncel kilo ve ölçüler kaydedildi');
     } catch (e) {
-      Get.snackbar('Hata', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Hata', e.toString());
     } finally {
       isLoading.value = false;
     }
@@ -138,9 +135,9 @@ class WeightController extends GetxController {
     isLoading.value = true;
     try {
       await repository.addEntry(userId, entry);
-      Get.snackbar('Güncellendi', 'Kayıt güncellendi', snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Güncellendi', 'Kayıt güncellendi');
     } catch (e) {
-      Get.snackbar('Hata', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Hata', e.toString());
     } finally {
       isLoading.value = false;
     }
@@ -150,11 +147,18 @@ class WeightController extends GetxController {
     isLoading.value = true;
     try {
       await repository.deleteEntry(userId, id);
-      Get.snackbar('Silindi', 'Kayıt silindi', snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Silindi', 'Kayıt silindi');
     } catch (e) {
-      Get.snackbar('Hata', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Hata', e.toString());
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void _showSnackbar(String title, String message) {
+    if (Get.context == null && Get.overlayContext == null) {
+      return;
+    }
+    Get.snackbar(title, message, snackPosition: SnackPosition.BOTTOM);
   }
 }

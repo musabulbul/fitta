@@ -67,109 +67,121 @@ class _AuthPageState extends State<AuthPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Fitta',
-                          style: theme.textTheme.headlineMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isLogin ? 'Giriş yap' : 'Kayıt ol',
-                          style: theme.textTheme.titleMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(CupertinoIcons.mail),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) =>
-                              v != null && v.contains('@') ? null : 'Geçerli email girin',
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _passwordCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Şifre',
-                            prefixIcon: Icon(CupertinoIcons.lock),
-                          ),
-                          obscureText: true,
-                          validator: (v) =>
-                              v != null && v.length >= 6 ? null : 'En az 6 karakter girin',
-                        ),
-                        const SizedBox(height: 20),
-                        Obx(
-                          () => ElevatedButton.icon(
-                            icon: Icon(_isLogin
-                                ? CupertinoIcons.arrow_right_to_line
-                                : CupertinoIcons.person_badge_plus),
-                            label: Text(_isLogin ? 'Giriş yap' : 'Kayıt ol'),
-                            onPressed: authController.isLoading.value ? null : _submit,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => setState(() => _isLogin = !_isLogin),
-                          child: Text(_isLogin
-                              ? 'Hesabın yok mu? Kayıt ol'
-                              : 'Zaten hesabın var mı? Giriş yap'),
-                        ),
-                        const Divider(height: 32),
-                        Obx(
-                          () => ElevatedButton.icon(
-                            icon: const Icon(CupertinoIcons.search),
-                            label: const Text('Google ile devam et'),
-                            onPressed: authController.isLoading.value
-                                ? null
-                                : () async {
-                                    try {
-                                      await authController.signInWithGoogle();
-                                    } catch (e) {
-                                      _showError(e.toString());
-                                    }
-                                  },
-                        ),
-                      ),
-                        const SizedBox(height: 8),
-                        FutureBuilder<bool>(
-                          future: SignInWithApple.isAvailable(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const SizedBox.shrink();
-                            }
-                            if (snapshot.data != true) return const SizedBox.shrink();
-                            return Obx(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/logo.png',
+                    width: 140,
+                    height: 140,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Fitta',
+                              style: theme.textTheme.headlineMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _isLogin ? 'Giriş yap' : 'Kayıt ol',
+                              style: theme.textTheme.titleMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _emailCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(CupertinoIcons.mail),
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) =>
+                                  v != null && v.contains('@') ? null : 'Geçerli email girin',
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _passwordCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Şifre',
+                                prefixIcon: Icon(CupertinoIcons.lock),
+                              ),
+                              obscureText: true,
+                              validator: (v) =>
+                                  v != null && v.length >= 6 ? null : 'En az 6 karakter girin',
+                            ),
+                            const SizedBox(height: 20),
+                            Obx(
                               () => ElevatedButton.icon(
-                                icon: const Icon(CupertinoIcons.person_crop_circle),
-                                label: const Text('Apple ile devam et'),
+                                icon: Icon(_isLogin
+                                    ? CupertinoIcons.arrow_right_to_line
+                                    : CupertinoIcons.person_badge_plus),
+                                label: Text(_isLogin ? 'Giriş yap' : 'Kayıt ol'),
+                                onPressed: authController.isLoading.value ? null : _submit,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => setState(() => _isLogin = !_isLogin),
+                              child: Text(_isLogin
+                                  ? 'Hesabın yok mu? Kayıt ol'
+                                  : 'Zaten hesabın var mı? Giriş yap'),
+                            ),
+                            const Divider(height: 32),
+                            Obx(
+                              () => ElevatedButton.icon(
+                                icon: const Icon(CupertinoIcons.search),
+                                label: const Text('Google ile devam et'),
                                 onPressed: authController.isLoading.value
                                     ? null
                                     : () async {
                                         try {
-                                          await authController.signInWithApple();
+                                          await authController.signInWithGoogle();
                                         } catch (e) {
                                           _showError(e.toString());
                                         }
                                       },
                               ),
-                            );
-                          },
+                            ),
+                            const SizedBox(height: 8),
+                            FutureBuilder<bool>(
+                              future: SignInWithApple.isAvailable(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const SizedBox.shrink();
+                                }
+                                if (snapshot.data != true) return const SizedBox.shrink();
+                                return Obx(
+                                  () => ElevatedButton.icon(
+                                    icon: const Icon(CupertinoIcons.person_crop_circle),
+                                    label: const Text('Apple ile devam et'),
+                                    onPressed: authController.isLoading.value
+                                        ? null
+                                        : () async {
+                                            try {
+                                              await authController.signInWithApple();
+                                            } catch (e) {
+                                              _showError(e.toString());
+                                            }
+                                          },
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),

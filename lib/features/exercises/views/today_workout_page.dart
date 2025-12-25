@@ -59,8 +59,10 @@ class _TodayWorkoutPageState extends State<TodayWorkoutPage> {
           _DaySelector(controller: controller),
           Obx(() {
             final total = controller.todayPlan.length;
-            final completed = controller.savedExercises.values.where((v) => v == true).length;
-            final progress = total == 0 ? 0.0 : completed / total;
+            final completed = controller.todayPlan
+                .where((plan) => controller.savedExercises[plan.exerciseId] == true)
+                .length;
+            final progress = total == 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
             return Column(
               children: [
                 Padding(

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:fitta/features/measurements/controllers/measurement_controller.dart';
@@ -9,7 +10,7 @@ class MockMeasurementRepository implements MeasurementRepository {
   final List<MeasurementEntry> _store = [];
 
   @override
-  final dynamic firestore = null;
+  FirebaseFirestore get firestore => throw UnimplementedError();
 
   @override
   Future<void> addEntry(String userId, MeasurementEntry entry) async {
@@ -48,10 +49,12 @@ class MockMeasurementRepository implements MeasurementRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late MeasurementController controller;
   late MockMeasurementRepository mockRepo;
 
   setUp(() {
+    Get.testMode = true;
     mockRepo = MockMeasurementRepository();
     controller = MeasurementController(repository: mockRepo, userId: 'test_user');
   });

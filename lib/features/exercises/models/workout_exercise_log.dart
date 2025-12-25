@@ -7,6 +7,7 @@ class WorkoutExerciseLog {
     required this.plannedSets,
     required this.plannedReps,
     this.plannedWeight,
+    this.plannedSeconds,
     this.logs = const [],
   });
 
@@ -15,6 +16,7 @@ class WorkoutExerciseLog {
   final int plannedSets;
   final int plannedReps;
   final double? plannedWeight;
+  final int? plannedSeconds;
   final List<SetLog> logs;
 
   WorkoutExerciseLog copyWith({
@@ -23,6 +25,7 @@ class WorkoutExerciseLog {
     int? plannedSets,
     int? plannedReps,
     double? plannedWeight,
+    int? plannedSeconds,
     List<SetLog>? logs,
   }) {
     return WorkoutExerciseLog(
@@ -31,6 +34,7 @@ class WorkoutExerciseLog {
       plannedSets: plannedSets ?? this.plannedSets,
       plannedReps: plannedReps ?? this.plannedReps,
       plannedWeight: plannedWeight ?? this.plannedWeight,
+      plannedSeconds: plannedSeconds ?? this.plannedSeconds,
       logs: logs ?? this.logs,
     );
   }
@@ -42,6 +46,7 @@ class WorkoutExerciseLog {
       'plannedSets': plannedSets,
       'plannedReps': plannedReps,
       'plannedWeight': plannedWeight,
+      'plannedSeconds': plannedSeconds,
       'logs': logs.map((e) => e.toMap()).toList(),
     };
   }
@@ -53,6 +58,7 @@ class WorkoutExerciseLog {
       plannedSets: (map['plannedSets'] as num?)?.toInt() ?? 0,
       plannedReps: (map['plannedReps'] as num?)?.toInt() ?? 0,
       plannedWeight: (map['plannedWeight'] as num?)?.toDouble(),
+      plannedSeconds: (map['plannedSeconds'] as num?)?.toInt(),
       logs: ((map['logs'] as List?) ?? [])
           .map((e) => SetLog.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
@@ -61,7 +67,7 @@ class WorkoutExerciseLog {
 
   @override
   String toString() =>
-      'WorkoutExerciseLog(exerciseId: $exerciseId, name: $name, plannedSets: $plannedSets, plannedReps: $plannedReps, plannedWeight: $plannedWeight, logs: $logs)';
+      'WorkoutExerciseLog(exerciseId: $exerciseId, name: $name, plannedSets: $plannedSets, plannedReps: $plannedReps, plannedWeight: $plannedWeight, plannedSeconds: $plannedSeconds, logs: $logs)';
 
   @override
   bool operator ==(Object other) {
@@ -72,12 +78,13 @@ class WorkoutExerciseLog {
         other.plannedSets == plannedSets &&
         other.plannedReps == plannedReps &&
         other.plannedWeight == plannedWeight &&
+        other.plannedSeconds == plannedSeconds &&
         _listEquals(other.logs, logs);
   }
 
   @override
-  int get hashCode => Object.hash(exerciseId, name, plannedSets, plannedReps, plannedWeight,
-      Object.hashAll(logs));
+  int get hashCode => Object.hash(exerciseId, name, plannedSets, plannedReps,
+      plannedWeight, plannedSeconds, Object.hashAll(logs));
 
   bool _listEquals(List<SetLog> a, List<SetLog> b) {
     if (identical(a, b)) return true;

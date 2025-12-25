@@ -207,7 +207,7 @@ class _EntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = _format(entry.date);
+    final date = _formatDateTime(entry.date);
     final fat = entry.bodyFatPercent != null ? '${entry.bodyFatPercent!.toStringAsFixed(1)}%' : '--';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -239,10 +239,12 @@ class _EntryTile extends StatelessWidget {
     );
   }
 
-  String _format(DateTime d) {
+  String _formatDateTime(DateTime d) {
     final day = d.day.toString().padLeft(2, '0');
     final month = d.month.toString().padLeft(2, '0');
-    return '$day.$month.${d.year}';
+    final hour = d.hour.toString().padLeft(2, '0');
+    final minute = d.minute.toString().padLeft(2, '0');
+    return '$day.$month.${d.year} • $hour:$minute';
   }
 
   void _showEditDialog(BuildContext context, WeightEntry entry) {

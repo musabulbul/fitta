@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:fitta/features/weight/controllers/weight_controller.dart';
@@ -9,8 +10,7 @@ class MockWeightRepository implements WeightRepository {
   final List<WeightEntry> _store = [];
 
   @override
-  // ignore: overridden_fields
-  final dynamic firestore = null;
+  FirebaseFirestore get firestore => throw UnimplementedError();
 
   @override
   Future<void> addEntry(String userId, WeightEntry entry) async {
@@ -23,6 +23,11 @@ class MockWeightRepository implements WeightRepository {
       final newEntry = entry.copyWith(id: entry.id.isEmpty ? 'new_id_${_store.length}' : entry.id);
       _store.add(newEntry);
     }
+  }
+
+  @override
+  Future<void> deleteEntry(String userId, String id) async {
+    _store.removeWhere((e) => e.id == id);
   }
 
   @override
@@ -52,12 +57,18 @@ class MockWeightRepository implements WeightRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  Get.testMode = true;
   late WeightController controller;
   late MockWeightRepository mockRepo;
 
   setUp(() {
     mockRepo = MockWeightRepository();
     controller = WeightController(repository: mockRepo, userId: 'test_user');
+  });
+
+  tearDown(() {
+    Get.reset();
   });
 
   test('Initial state should be clean or load last entry', () async {
