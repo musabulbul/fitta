@@ -106,7 +106,7 @@ class _WeightPageState extends State<WeightPage> {
               title: const Text('Diğer Ölçüler (opsiyonel)'),
               initiallyExpanded: expanded,
               onExpansionChanged: (v) => setState(() => expanded = v),
-              childrenPadding: const EdgeInsets.only(bottom: 12),
+              childrenPadding: const EdgeInsets.only(bottom: 12, left: 16, right: 16, top: 12),
               children: [
                 _InputRow(
                   label: 'Boy (cm)',
@@ -121,7 +121,7 @@ class _WeightPageState extends State<WeightPage> {
                 ),
                 AppSpacing.vSm,
                 _InputRow(
-                  label: 'Kalça (cm)',
+                  label: 'Kalça (Sadece Kadınlar)',
                   controller: hipCtrl,
                   onChanged: (v) => controller.hip.value = v,
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitta/features/auth/auth_controller.dart';
+import 'package:fitta/features/profile/controllers/profile_controller.dart';
 import 'package:fitta/core/utils/app_spacing.dart';
 import 'package:fitta/core/widgets/fitta_app_bar.dart';
 import 'package:fitta/core/widgets/fitta_card.dart';
@@ -18,6 +19,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final controller = Get.put(ProfileController());
 
     return Scaffold(
       appBar: const FittaAppBar(title: 'Profil'),
@@ -27,23 +29,57 @@ class ProfilePage extends StatelessWidget {
           FittaCard(
             child: Column(
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
-                      child: const Icon(CupertinoIcons.person_fill, color: Colors.white),
-                    ),
-                    AppSpacing.hMd,
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Musa Bulbul', style: theme.textTheme.titleMedium),
-                        Text('musa@example.com', style: theme.textTheme.bodySmall),
-                      ],
-                    ),
-                  ],
-                ),
+                Obx(() {
+                  final user = controller.user.value;
+                  return Row(
+                    children: [
+                      GestureDetector(
+                        onTap: controller.pickAndUploadImage,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+                              backgroundImage: controller.photoUrl.value.isNotEmpty
+                                  ? NetworkImage(controller.photoUrl.value)
+                                  : null,
+                              child: controller.photoUrl.value.isEmpty
+                                  ? const Icon(CupertinoIcons.person_fill, color: Colors.white)
+                                  : null,
+                            ),
+                            if (controller.isLoading.value)
+                              const SizedBox(
+                                width: 64, height: 64,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                          ],
+                        ),
+                      ),
+                      AppSpacing.hMd,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  controller.userName.value.isNotEmpty ? controller.userName.value : 'Kullanıcı',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 16),
+                                  onPressed: () => _showNameEditDialog(context, controller),
+                                )
+                              ],
+                            ),
+                            Text(user?.email ?? '', style: theme.textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }),
                 AppSpacing.vMd,
                 const Divider(),
                 ListTile(
@@ -76,8 +112,8 @@ class ProfilePage extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Dark / Light'),
                   subtitle: const Text('Tema tercihi'),
-                  value: true,
-                  onChanged: (_) {},
+                  value: Get.isDarkMode,
+                  onChanged: (_) => controller.toggleTheme(),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -94,7 +130,6 @@ class ProfilePage extends StatelessWidget {
                   onPressed: () async {
                     final auth = Get.find<AuthController>();
                     await auth.signOut();
-                    // FirebaseAuth signOut is already called in AuthController.signOut, but keeping it safe
                     if (FirebaseAuth.instance.currentUser != null) {
                       await FirebaseAuth.instance.signOut();
                     }
@@ -106,6 +141,20 @@ class ProfilePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showNameEditDialog(BuildContext context, ProfileController controller) {
+    final nameCtrl = TextEditingController(text: controller.userName.value);
+    Get.defaultDialog(
+      title: 'İsim Güncelle',
+      content: TextField(
+        controller: nameCtrl,
+        decoration: const InputDecoration(labelText: 'İsim'),
+      ),
+      textConfirm: 'Kaydet',
+      textCancel: 'İptal',
+      onConfirm: () => controller.updateName(nameCtrl.text),
     );
   }
 }
