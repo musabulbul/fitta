@@ -9,6 +9,7 @@ import 'package:fitta/core/widgets/fitta_card.dart';
 import 'package:fitta/core/widgets/primary_button.dart';
 import 'package:fitta/features/sharing/views/sharing_page.dart';
 import 'package:fitta/features/admin/views/admin_exercise_panel_page.dart';
+import 'package:fitta/features/packages/views/packages_page.dart';
 import 'package:fitta/features/auth/auth_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -63,6 +64,14 @@ class ProfilePage extends StatelessWidget {
                   trailing: const Icon(CupertinoIcons.forward),
                   onTap: () => Get.to(() => const AdminExercisePanelPage()),
                 ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(CupertinoIcons.cube_box_fill, color: theme.colorScheme.primary),
+                  title: const Text('Hazır Paketlerim'),
+                  subtitle: const Text('Antrenman paketleri oluştur ve gönder'),
+                  trailing: const Icon(CupertinoIcons.forward),
+                  onTap: () => Get.to(() => const PackagesPage()),
+                ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Dark / Light'),
@@ -81,13 +90,14 @@ class ProfilePage extends StatelessWidget {
                 AppSpacing.vMd,
                 PrimaryButton(
                   label: 'Çıkış',
-                  icon: Icon(CupertinoIcons.square_arrow_right, size: 18),
+                  icon: const Icon(CupertinoIcons.square_arrow_right, size: 18),
                   onPressed: () async {
-                    final auth = Get.isRegistered<AuthController>()
-                        ? Get.find<AuthController>()
-                        : Get.put(AuthController());
+                    final auth = Get.find<AuthController>();
                     await auth.signOut();
-                    await FirebaseAuth.instance.signOut();
+                    // FirebaseAuth signOut is already called in AuthController.signOut, but keeping it safe
+                    if (FirebaseAuth.instance.currentUser != null) {
+                      await FirebaseAuth.instance.signOut();
+                    }
                     Get.offAll(() => const AuthPage());
                   },
                 ),

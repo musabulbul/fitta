@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 
+import 'package:fitta/core/utils/firebase_errors.dart';
 import 'auth_service.dart';
 
 class AuthController extends GetxController {
@@ -53,8 +54,10 @@ class AuthController extends GetxController {
     try {
       await fn();
     } catch (e) {
-      error.value = e.toString();
-      rethrow;
+      final msg = FirebaseErrors.getMessage(e);
+      error.value = msg;
+      Get.snackbar('Hata', msg, snackPosition: SnackPosition.BOTTOM);
+      // We don't rethrow here to let the UI handle the error state gracefully via observable 'error'
     } finally {
       isLoading.value = false;
     }
