@@ -19,6 +19,21 @@ class WeightRepository {
     return WeightEntry.fromMap({'id': doc.id, ...doc.data()});
   }
 
+  Future<WeightEntry?> getEntryByDate(String userId, DateTime date) async {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+    final snap = await _entries(userId)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return WeightEntry.fromMap({'id': doc.id, ...doc.data()});
+  }
+
   Future<void> addEntry(String userId, WeightEntry entry) async {
     final ref = entry.id.isNotEmpty ? _entries(userId).doc(entry.id) : _entries(userId).doc();
     await ref.set(entry.toMap());

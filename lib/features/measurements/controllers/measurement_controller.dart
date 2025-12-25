@@ -53,23 +53,60 @@ class MeasurementController extends GetxController {
   }
 
   Future<void> saveTodayEntry() async {
-    final entry = MeasurementEntry(
-      id: '',
-      date: DateTime.now(),
-      chest: _parseOrNull(chest.value),
-      waist: _parseOrNull(waist.value),
-      hip: _parseOrNull(hip.value),
-      biceps: _parseOrNull(biceps.value),
-      thigh: _parseOrNull(thigh.value),
-      calf: _parseOrNull(calf.value),
-    );
+    final pChest = _parseOrNull(chest.value);
+    final pWaist = _parseOrNull(waist.value);
+    final pHip = _parseOrNull(hip.value);
+    final pBiceps = _parseOrNull(biceps.value);
+    final pThigh = _parseOrNull(thigh.value);
+    final pCalf = _parseOrNull(calf.value);
+
+    // Validate that at least one measurement is provided
+    if (pChest == null &&
+        pWaist == null &&
+        pHip == null &&
+        pBiceps == null &&
+        pThigh == null &&
+        pCalf == null) {
+      Get.snackbar(
+          'Eksik bilgi', 'Lütfen en az bir ölçü girin',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    // Validate non-negative values
+    if ((pChest != null && pChest <= 0) ||
+        (pWaist != null && pWaist <= 0) ||
+        (pHip != null && pHip <= 0) ||
+        (pBiceps != null && pBiceps <= 0) ||
+        (pThigh != null && pThigh <= 0) ||
+        (pCalf != null && pCalf <= 0)) {
+      Get.snackbar(
+          'Geçersiz değer', 'Ölçü değerleri 0\'dan büyük olmalıdır',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
 
     isLoading.value = true;
     try {
+      final today = DateTime.now();
+      final existingEntry = await repository.getEntryByDate(userId, today);
+
+      final entry = MeasurementEntry(
+        id: existingEntry?.id ?? '',
+        date: existingEntry?.date ?? today,
+        chest: pChest ?? existingEntry?.chest,
+        waist: pWaist ?? existingEntry?.waist,
+        hip: pHip ?? existingEntry?.hip,
+        biceps: pBiceps ?? existingEntry?.biceps,
+        thigh: pThigh ?? existingEntry?.thigh,
+        calf: pCalf ?? existingEntry?.calf,
+      );
+
       await repository.addEntry(userId, entry);
       lastEntry.value = entry;
-      _clearInputs();
-      Get.snackbar('Kaydedildi', 'Ölçüler kaydedildi', snackPosition: SnackPosition.BOTTOM);
+      // Removed _clearInputs() to allow user to see what they saved
+      Get.snackbar('Kaydedildi', 'Ölçüler kaydedildi',
+          snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
       Get.snackbar('Hata', e.toString(), snackPosition: SnackPosition.BOTTOM);
     } finally {
@@ -82,12 +119,4 @@ class MeasurementController extends GetxController {
     return double.tryParse(value);
   }
 
-  void _clearInputs() {
-    chest.value = '';
-    waist.value = '';
-    hip.value = '';
-    biceps.value = '';
-    thigh.value = '';
-    calf.value = '';
-  }
 }
