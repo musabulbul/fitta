@@ -133,4 +133,28 @@ class WeightController extends GetxController {
     if (value.trim().isEmpty) return fallback;
     return double.tryParse(value);
   }
+
+  Future<void> updateEntry(WeightEntry entry) async {
+    isLoading.value = true;
+    try {
+      await repository.addEntry(userId, entry);
+      Get.snackbar('Güncellendi', 'Kayıt güncellendi', snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar('Hata', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> deleteEntry(String id) async {
+    isLoading.value = true;
+    try {
+      await repository.deleteEntry(userId, id);
+      Get.snackbar('Silindi', 'Kayıt silindi', snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar('Hata', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }

@@ -39,6 +39,10 @@ class WeightRepository {
     await ref.set(entry.toMap());
   }
 
+  Future<void> deleteEntry(String userId, String id) async {
+    await _entries(userId).doc(id).delete();
+  }
+
   Stream<List<WeightEntry>> watchEntries(String userId) {
     return _entries(userId)
         .orderBy('date', descending: true)
