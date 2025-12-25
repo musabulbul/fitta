@@ -512,7 +512,7 @@ class _SaveExerciseButton extends StatelessWidget {
   }
 }
 
-class _SetRow extends StatelessWidget {
+class _SetRow extends StatefulWidget {
   const _SetRow({
     required this.plan,
     required this.setLog,
@@ -524,56 +524,117 @@ class _SetRow extends StatelessWidget {
   final void Function(int reps, double? weight, int? seconds) onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final weightController =
-        TextEditingController(text: setLog.weight?.toStringAsFixed(1) ?? '');
-    final repsController = TextEditingController(text: setLog.reps.toString());
-    final secondsController = TextEditingController(text: setLog.seconds?.toString() ?? '');
+  State<_SetRow> createState() => _SetRowState();
+}
 
+class _SetRowState extends State<_SetRow> {
+  late final TextEditingController weightController;
+  late final TextEditingController repsController;
+  late final TextEditingController secondsController;
+
+  @override
+  void initState() {
+    super.initState();
+    weightController = TextEditingController(
+        text: widget.setLog.weight?.toStringAsFixed(1) ?? '');
+    repsController = TextEditingController(text: widget.setLog.reps.toString());
+    secondsController = TextEditingController(
+        text: widget.setLog.seconds?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    weightController.dispose();
+    repsController.dispose();
+    secondsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SetRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.setLog != oldWidget.setLog) {
+      _updateController(weightController, widget.setLog.weight, isWeight: true);
+      _updateController(repsController, widget.setLog.reps);
+      _updateController(secondsController, widget.setLog.seconds);
+    }
+  }
+
+  void _updateController(TextEditingController controller, num? value,
+      {bool isWeight = false}) {
+    if (value == null) {
+      if (controller.text.isNotEmpty) {
+        controller.text = '';
+      }
+      return;
+    }
+
+    final currentVal = num.tryParse(controller.text);
+    if (currentVal == value) return;
+
+    final newText =
+        isWeight ? (value as double).toStringAsFixed(1) : value.toString();
+    if (controller.text != newText) {
+      controller.text = newText;
+      controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: controller.text.length));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Set ${setLog.setNo}', style: Theme.of(context).textTheme.bodySmall),
+        Text('Set ${widget.setLog.setNo}',
+            style: Theme.of(context).textTheme.bodySmall),
         AppSpacing.vXs,
         Row(
           children: [
             Expanded(
               child: TextFormField(
-                key: ValueKey('reps-${plan.exerciseId}-${setLog.setNo}'),
-                controller: plan.type == 'time' ? secondsController : repsController,
+                key: ValueKey(
+                    'reps-${widget.plan.exerciseId}-${widget.setLog.setNo}'),
+                controller: widget.plan.type == 'time'
+                    ? secondsController
+                    : repsController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: plan.type == 'time' ? 'Süre (sn)' : 'Tekrar',
+                  labelText: widget.plan.type == 'time' ? 'Süre (sn)' : 'Tekrar',
                 ),
                 onChanged: (value) {
                   final parsed = int.tryParse(value) ?? 0;
-                  final weight = plan.type == 'time'
-                      ? setLog.weight
+                  final weight = widget.plan.type == 'time'
+                      ? widget.setLog.weight
                       : double.tryParse(weightController.text);
-                  final seconds = plan.type == 'time' ? parsed : setLog.seconds;
-                  final reps = plan.type == 'time' ? setLog.reps : parsed;
-                  onChanged(reps, weight, seconds);
+                  final seconds =
+                      widget.plan.type == 'time' ? parsed : widget.setLog.seconds;
+                  final reps =
+                      widget.plan.type == 'time' ? widget.setLog.reps : parsed;
+                  widget.onChanged(reps, weight, seconds);
                 },
               ),
             ),
             AppSpacing.hSm,
             Expanded(
               child: TextFormField(
-                key: ValueKey('weight-${plan.exerciseId}-${setLog.setNo}'),
+                key: ValueKey(
+                    'weight-${widget.plan.exerciseId}-${widget.setLog.setNo}'),
                 controller: weightController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: plan.type == 'time' ? 'Notlar' : 'Ağırlık (kg)',
+                  labelText:
+                      widget.plan.type == 'time' ? 'Notlar' : 'Ağırlık (kg)',
                 ),
                 onChanged: (value) {
                   final weight = double.tryParse(value);
-                  final seconds = plan.type == 'time'
+                  final seconds = widget.plan.type == 'time'
                       ? int.tryParse(secondsController.text)
-                      : setLog.seconds;
-                  final reps = plan.type == 'time'
-                      ? setLog.reps
+                      : widget.setLog.seconds;
+                  final reps = widget.plan.type == 'time'
+                      ? widget.setLog.reps
                       : int.tryParse(repsController.text) ?? 0;
-                  onChanged(reps, weight, seconds);
+                  widget.onChanged(reps, weight, seconds);
                 },
               ),
             ),
@@ -584,7 +645,7 @@ class _SetRow extends StatelessWidget {
   }
 }
 
-class _NextWeightField extends StatelessWidget {
+class _NextWeightField extends StatefulWidget {
   const _NextWeightField({
     required this.initialValue,
     required this.onChanged,
@@ -596,19 +657,72 @@ class _NextWeightField extends StatelessWidget {
   final void Function(double?) onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final isTime = type == 'time';
-    final controller = TextEditingController(
-      text: initialValue != null ? initialValue!.toStringAsFixed(isTime ? 0 : 1) : '',
+  State<_NextWeightField> createState() => _NextWeightFieldState();
+}
+
+class _NextWeightFieldState extends State<_NextWeightField> {
+  late final TextEditingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final isTime = widget.type == 'time';
+    controller = TextEditingController(
+      text: widget.initialValue != null
+          ? widget.initialValue!.toStringAsFixed(isTime ? 0 : 1)
+          : '',
     );
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NextWeightField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue) {
+      _updateController();
+    }
+  }
+
+  void _updateController() {
+    final value = widget.initialValue;
+    if (value == null) {
+      if (controller.text.isNotEmpty) {
+        controller.text = '';
+      }
+      return;
+    }
+
+    final currentVal = double.tryParse(controller.text);
+    if (currentVal == value) return;
+
+    final isTime = widget.type == 'time';
+    final newText = value.toStringAsFixed(isTime ? 0 : 1);
+
+    if (controller.text != newText) {
+      controller.text = newText;
+      controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: controller.text.length));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTime = widget.type == 'time';
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
-        labelText: isTime ? 'Sonraki seans için süre (sn)' : 'Sonraki seans için ağırlık',
+        labelText: isTime
+            ? 'Sonraki seans için süre (sn)'
+            : 'Sonraki seans için ağırlık',
         hintText: isTime ? 'Örn: 60' : 'Örn: 35',
       ),
-      onChanged: (value) => onChanged(double.tryParse(value)),
+      onChanged: (value) => widget.onChanged(double.tryParse(value)),
     );
   }
 }
