@@ -1,0 +1,58 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "fittamebs",
+          "appId": "1:1059312799046:android:063b44db1ae28ebb74e947",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "fittamebs",
+          "appId": "1:1059312799046:ios:a6d72c3607231d3774e947",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "fittamebs",
+          "appId": "1:1059312799046:ios:a6d72c3607231d3774e947",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "fittamebs",
+          "configurations": {
+            "android": "1:1059312799046:android:063b44db1ae28ebb74e947",
+            "ios": "1:1059312799046:ios:a6d72c3607231d3774e947",
+            "macos": "1:1059312799046:ios:a6d72c3607231d3774e947",
+            "web": "1:1059312799046:web:e3300885b2ced75c74e947",
+            "windows": "1:1059312799046:web:8ae62178abcd04f974e947"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
+  }
+}

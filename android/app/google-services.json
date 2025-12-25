@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1059312799046",
+    "project_id": "fittamebs",
+    "storage_bucket": "fittamebs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059312799046:android:063b44db1ae28ebb74e947",
+        "android_client_info": {
+          "package_name": "com.example.fitta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCI12NvVHGgW5YGAz7nZhHz05VtBsiQKm4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

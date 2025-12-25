@@ -1,0 +1,614 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import 'edit_plan_page.dart';
+import 'exercise_history_page.dart';
+import '../controllers/exercise_controller.dart';
+import '../data/exercise_repository.dart';
+import '../models/planned_exercise.dart';
+import '../models/set_log.dart';
+import 'package:fitta/core/utils/app_spacing.dart';
+import 'package:fitta/core/widgets/fitta_app_bar.dart';
+import 'package:fitta/core/theme/app_theme.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class TodayWorkoutPage extends StatefulWidget {
+  const TodayWorkoutPage({super.key});
+
+  @override
+  State<TodayWorkoutPage> createState() => _TodayWorkoutPageState();
+}
+
+class _TodayWorkoutPageState extends State<TodayWorkoutPage> {
+  late final ExerciseController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = _provideController();
+  }
+
+  ExerciseController _provideController() {
+    if (Get.isRegistered<ExerciseController>()) {
+      return Get.find<ExerciseController>();
+    }
+    final demoUserId = FirebaseAuth.instance.currentUser?.uid ?? 'demoUser';
+    final ctrl = ExerciseController(
+      repository: ExerciseRepository(),
+      userId: demoUserId,
+    );
+    return Get.put(ctrl);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: FittaAppBar(
+        title: 'Bugünkü Antrenman',
+        actions: [
+          IconButton(
+            icon: const Icon(CupertinoIcons.square_list),
+            tooltip: 'Plan Düzenle',
+            onPressed: () => Get.to(() => const EditPlanPage()),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _DaySelector(controller: controller),
+          Obx(() {
+            final total = controller.todayPlan.length;
+            final completed = controller.savedExercises.values.where((v) => v == true).length;
+            final progress = total == 0 ? 0.0 : completed / total;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text('Gün ilerlemesi: $completed/$total'),
+                      const Spacer(),
+                      Text('${(progress * 100).toStringAsFixed(0)}%'),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: LinearProgressIndicator(value: progress),
+                ),
+                AppSpacing.vSm,
+              ],
+            );
+          }),
+          Expanded(
+            child: Obx(() {
+              if (controller.isLoading.value && controller.todayPlan.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (controller.todayPlan.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(CupertinoIcons.square_list, size: 48),
+                      AppSpacing.vSm,
+                      const Text('Seçili gün için plan bulunamadı.'),
+                      AppSpacing.vSm,
+                      FilledButton(
+                        onPressed: () => controller.loadPlanForSelectedDay(),
+                        child: const Text('Yenile'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final completedPlans = controller.todayPlan
+                  .where((p) => controller.savedExercises[p.exerciseId] == true)
+                  .toList(growable: false);
+              final activePlans = controller.todayPlan
+                  .where((p) => controller.savedExercises[p.exerciseId] != true)
+                  .toList(growable: false);
+              final itemCount =
+                  activePlans.length + (completedPlans.isNotEmpty ? 1 : 0);
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                itemCount: itemCount,
+                itemBuilder: (context, index) {
+                  if (index < activePlans.length) {
+                    final plan = activePlans[index];
+                    final logs = controller.logsByExerciseId[plan.exerciseId] ?? const [];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _WorkoutCard(
+                        plan: plan,
+                        logs: logs,
+                        controller: controller,
+                      ),
+                    );
+                  }
+
+                  return _CompletedSection(plans: completedPlans, controller: controller);
+                },
+              );
+            }),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+class _DaySelector extends StatelessWidget {
+  const _DaySelector({required this.controller});
+
+  final ExerciseController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final selected = controller.selectedDayKey.value;
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: ExerciseRepository.weekDayKeys.map((day) {
+            final label = ExerciseRepository.weekDayLabels[day] ?? day.toUpperCase();
+            final isSelected = day == selected;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (_) => controller.changeDay(day),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    });
+  }
+}
+
+enum _WorkoutMenuAction { move, remove }
+
+class _CompletedSection extends StatelessWidget {
+  const _CompletedSection({required this.plans, required this.controller});
+
+  final List<PlannedExercise> plans;
+  final ExerciseController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (plans.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text('Tamamlanan çalışmalar', style: theme.textTheme.titleMedium),
+        ),
+        ...plans.map((plan) {
+          final logs = controller.logsByExerciseId[plan.exerciseId] ?? const [];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _WorkoutCard(
+              plan: plan,
+              logs: logs,
+              controller: controller,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _WorkoutCard extends StatelessWidget {
+  const _WorkoutCard({
+    required this.plan,
+    required this.logs,
+    required this.controller,
+  });
+
+  final PlannedExercise plan;
+  final List<SetLog> logs;
+  final ExerciseController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final saved = controller.savedExercises[plan.exerciseId] == true;
+    final fadedColor = saved ? Colors.green : null;
+    final cardColor =
+        saved ? Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.08) : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          color: cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SaveExerciseButton(
+                    controller: controller,
+                    plan: plan,
+                    compact: true,
+                  ),
+                  PopupMenuButton<_WorkoutMenuAction>(
+                    icon: const Icon(CupertinoIcons.ellipsis_vertical),
+                    onSelected: (action) => _handleMenuAction(context, action),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _WorkoutMenuAction.move,
+                        child: Text('Günü değiştir'),
+                      ),
+                      PopupMenuItem(
+                        value: _WorkoutMenuAction.remove,
+                        child: Text('Plandan çıkar'),
+                      ),
+                    ],
+                  ),
+                  const Icon(CupertinoIcons.chevron_down),
+                ],
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plan.name,
+                    style: theme.textTheme.titleMedium?.copyWith(color: fadedColor),
+                  ),
+                  AppSpacing.vXs,
+                  Text(
+                      '${plan.category} • ${plan.sets} x ${plan.type == 'time' ? (plan.seconds ?? plan.reps) : plan.reps}${plan.type == 'time' ? ' sn' : ''}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: fadedColor)),
+                  AppSpacing.vXs,
+                  Text(
+                    'Bugün plan: ${_plannedValue(plan)}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: fadedColor),
+                  ),
+                ],
+              ),
+              children: [
+                AppSpacing.vSm,
+                if ((plan.description ?? '').isNotEmpty) ...[
+                  Text(plan.description!, style: theme.textTheme.bodySmall),
+                  AppSpacing.vSm,
+                ],
+                ...List.generate(plan.sets, (i) {
+                  final setNo = i + 1;
+                  final existing = logs.firstWhere(
+                    (log) => log.setNo == setNo,
+                    orElse: () => SetLog(
+                      setNo: setNo,
+                      reps: plan.reps,
+                      weight: plan.weight,
+                      seconds: plan.seconds,
+                    ),
+                  );
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: i == plan.sets - 1 ? 0 : 10),
+                    child: _SetRow(
+                      plan: plan,
+                      setLog: existing,
+                      onChanged: (reps, weight, seconds) => controller.updateSetLog(
+                        exerciseId: plan.exerciseId,
+                        setNo: setNo,
+                        reps: reps,
+                        weight: weight,
+                        seconds: seconds,
+                      ),
+                    ),
+                  );
+                }),
+                AppSpacing.vMd,
+                _NextWeightField(
+                  type: plan.type,
+                  initialValue: controller.nextWeights[plan.exerciseId] ??
+                      (plan.type == 'time'
+                          ? plan.seconds?.toDouble()
+                          : plan.nextWeight ?? plan.weight),
+                onChanged: (value) => controller.updateNextWeight(plan.exerciseId, value),
+                ),
+                AppSpacing.vSm,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _SaveExerciseButton(
+                    controller: controller,
+                    plan: plan,
+                    compact: false,
+                  ),
+                ),
+                AppSpacing.vSm,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => Get.to(
+                      () => ExerciseHistoryPage(
+                        exerciseId: plan.exerciseId,
+                        exerciseName: plan.name,
+                      ),
+                    ),
+                    icon: const Icon(CupertinoIcons.time),
+                    label: const Text('Geçmişi gör'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Obx(() {
+          final saved = controller.savedExercises[plan.exerciseId] ?? false;
+          if (!saved) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              'Kaydedildi',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  String _plannedValue(PlannedExercise plan) {
+    switch (plan.type) {
+      case 'time':
+        return '${plan.seconds ?? 0} sn';
+      case 'weight':
+        return '${plan.weight?.toStringAsFixed(1) ?? '--'} kg';
+      default:
+        return '${plan.reps} tekrar';
+    }
+  }
+
+  Future<void> _handleMenuAction(
+    BuildContext context,
+    _WorkoutMenuAction action,
+  ) async {
+    switch (action) {
+      case _WorkoutMenuAction.move:
+        final targetDay = await _selectTargetDay(context);
+        if (targetDay != null && targetDay != controller.selectedDayKey.value) {
+          await controller.moveExerciseToDay(plan, targetDay);
+        }
+        break;
+      case _WorkoutMenuAction.remove:
+        await controller.removeExerciseFromToday(plan.exerciseId);
+        break;
+    }
+  }
+
+  Future<String?> _selectTargetDay(BuildContext context) async {
+    final current = controller.selectedDayKey.value;
+    final firstOtherDay =
+        ExerciseRepository.weekDayKeys.firstWhere((d) => d != current, orElse: () => current);
+    String selected = firstOtherDay;
+    return showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Hangi güne taşıyalım?', style: Theme.of(context).textTheme.titleMedium),
+                  AppSpacing.vSm,
+                  Wrap(
+                    spacing: 8,
+                    children: ExerciseRepository.weekDayKeys.map((day) {
+                      final label = ExerciseRepository.weekDayLabels[day] ?? day.toUpperCase();
+                      final isSelected = day == selected;
+                      return FilterChip(
+                        label: Text(label),
+                        selected: isSelected,
+                        onSelected: (_) => setState(() => selected = day),
+                      );
+                    }).toList(),
+                  ),
+                  AppSpacing.vMd,
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: selected == current
+                          ? null
+                          : () => Navigator.of(context).pop(selected),
+                      child: const Text('Taşı'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SaveExerciseButton extends StatelessWidget {
+  const _SaveExerciseButton({
+    required this.controller,
+    required this.plan,
+    required this.compact,
+  });
+
+  final ExerciseController controller;
+  final PlannedExercise plan;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final saving = controller.savingExercises[plan.exerciseId] ?? false;
+      final saved = controller.savedExercises[plan.exerciseId] ?? false;
+      final colorScheme = Theme.of(context).colorScheme;
+      final label = saving
+          ? 'Kaydediliyor...'
+          : saved
+              ? 'Güncelle'
+              : 'Kaydet';
+      final icon = saving
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: compact ? colorScheme.primary : colorScheme.onPrimary,
+              ),
+            )
+          : Icon(
+              saved ? CupertinoIcons.pencil : CupertinoIcons.check_mark_circled,
+              size: 16,
+            );
+
+      if (compact) {
+        return TextButton.icon(
+          onPressed: saving ? null : () => controller.saveExercise(plan.exerciseId),
+          icon: icon,
+          label: Text(label),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            minimumSize: const Size(0, 36),
+          ),
+        );
+      }
+
+      return FilledButton.icon(
+        onPressed: saving ? null : () => controller.saveExercise(plan.exerciseId),
+        icon: icon,
+        label: Text(label),
+      );
+    });
+  }
+}
+
+class _SetRow extends StatelessWidget {
+  const _SetRow({
+    required this.plan,
+    required this.setLog,
+    required this.onChanged,
+  });
+
+  final PlannedExercise plan;
+  final SetLog setLog;
+  final void Function(int reps, double? weight, int? seconds) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final weightController =
+        TextEditingController(text: setLog.weight?.toStringAsFixed(1) ?? '');
+    final repsController = TextEditingController(text: setLog.reps.toString());
+    final secondsController = TextEditingController(text: setLog.seconds?.toString() ?? '');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Set ${setLog.setNo}', style: Theme.of(context).textTheme.bodySmall),
+        AppSpacing.vXs,
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                key: ValueKey('reps-${plan.exerciseId}-${setLog.setNo}'),
+                controller: plan.type == 'time' ? secondsController : repsController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: plan.type == 'time' ? 'Süre (sn)' : 'Tekrar',
+                ),
+                onChanged: (value) {
+                  final parsed = int.tryParse(value) ?? 0;
+                  final weight = plan.type == 'time'
+                      ? setLog.weight
+                      : double.tryParse(weightController.text);
+                  final seconds = plan.type == 'time' ? parsed : setLog.seconds;
+                  final reps = plan.type == 'time' ? setLog.reps : parsed;
+                  onChanged(reps, weight, seconds);
+                },
+              ),
+            ),
+            AppSpacing.hSm,
+            Expanded(
+              child: TextFormField(
+                key: ValueKey('weight-${plan.exerciseId}-${setLog.setNo}'),
+                controller: weightController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: plan.type == 'time' ? 'Notlar' : 'Ağırlık (kg)',
+                ),
+                onChanged: (value) {
+                  final weight = double.tryParse(value);
+                  final seconds = plan.type == 'time'
+                      ? int.tryParse(secondsController.text)
+                      : setLog.seconds;
+                  final reps = plan.type == 'time'
+                      ? setLog.reps
+                      : int.tryParse(repsController.text) ?? 0;
+                  onChanged(reps, weight, seconds);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _NextWeightField extends StatelessWidget {
+  const _NextWeightField({
+    required this.initialValue,
+    required this.onChanged,
+    required this.type,
+  });
+
+  final double? initialValue;
+  final String type;
+  final void Function(double?) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isTime = type == 'time';
+    final controller = TextEditingController(
+      text: initialValue != null ? initialValue!.toStringAsFixed(isTime ? 0 : 1) : '',
+    );
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: isTime ? 'Sonraki seans için süre (sn)' : 'Sonraki seans için ağırlık',
+        hintText: isTime ? 'Örn: 60' : 'Örn: 35',
+      ),
+      onChanged: (value) => onChanged(double.tryParse(value)),
+    );
+  }
+}
