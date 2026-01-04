@@ -25,11 +25,13 @@ class ExerciseHistoryPage extends StatefulWidget {
     required this.exerciseId,
     this.exerciseName,
     this.repository,
+    this.userId,
   });
 
   final String exerciseId;
   final String? exerciseName;
   final ExerciseRepository? repository;
+  final String? userId;
 
   @override
   State<ExerciseHistoryPage> createState() => _ExerciseHistoryPageState();
@@ -40,9 +42,10 @@ class _ExerciseHistoryPageState extends State<ExerciseHistoryPage> {
   late Future<List<WorkoutSession>> _future;
 
   String get _userId =>
-      Get.isRegistered<ExerciseController>()
+      widget.userId ??
+      (Get.isRegistered<ExerciseController>()
           ? Get.find<ExerciseController>().userId
-          : (FirebaseAuth.instance.currentUser?.uid ?? 'demoUser');
+          : FirebaseAuth.instance.currentUser!.uid);
 
   @override
   void initState() {

@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'auth_controller.dart';
+import 'auth_service.dart';
+import 'package:fitta/features/public/views/guest_home_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -14,6 +16,7 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
+  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -29,6 +32,7 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -36,13 +40,14 @@ class _AuthPageState extends State<AuthPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
     try {
       if (_isLogin) {
         await authController.signIn(email, password);
       } else {
-        await authController.signUp(email, password);
+        await authController.signUp(email, password, displayName: name);
       }
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? 'Giriş başarısız');
@@ -98,6 +103,20 @@ class _AuthPageState extends State<AuthPage> {
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
+                            if (!_isLogin) ...[
+                              TextFormField(
+                                controller: _nameCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Ad Soyad',
+                                  prefixIcon: Icon(CupertinoIcons.person),
+                                ),
+                                textInputAction: TextInputAction.next,
+                                validator: (v) => (!_isLogin && (v == null || v.trim().isEmpty))
+                                    ? 'Ad soyad girin'
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             TextFormField(
                               controller: _emailCtrl,
                               decoration: const InputDecoration(
@@ -130,7 +149,12 @@ class _AuthPageState extends State<AuthPage> {
                               ),
                             ),
                             TextButton(
-                              onPressed: () => setState(() => _isLogin = !_isLogin),
+                              onPressed: () => setState(() {
+                                _isLogin = !_isLogin;
+                                if (_isLogin) {
+                                  _nameCtrl.clear();
+                                }
+                              }),
                               child: Text(_isLogin
                                   ? 'Hesabın yok mu? Kayıt ol'
                                   : 'Zaten hesabın var mı? Giriş yap'),
@@ -151,30 +175,37 @@ class _AuthPageState extends State<AuthPage> {
                                       },
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            FutureBuilder<bool>(
-                              future: SignInWithApple.isAvailable(),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return const SizedBox.shrink();
-                                }
-                                if (snapshot.data != true) return const SizedBox.shrink();
-                                return Obx(
-                                  () => ElevatedButton.icon(
-                                    icon: const Icon(CupertinoIcons.person_crop_circle),
-                                    label: const Text('Apple ile devam et'),
-                                    onPressed: authController.isLoading.value
-                                        ? null
-                                        : () async {
-                                            try {
-                                              await authController.signInWithApple();
-                                            } catch (e) {
-                                              _showError(e.toString());
-                                            }
-                                          },
-                                  ),
-                                );
-                              },
+                            if (AuthService.appleSignInSupported) ...[
+                              const SizedBox(height: 8),
+                              FutureBuilder<bool>(
+                                future: SignInWithApple.isAvailable(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  if (snapshot.data != true) return const SizedBox.shrink();
+                                  return Obx(
+                                    () => ElevatedButton.icon(
+                                      icon: const Icon(CupertinoIcons.person_crop_circle),
+                                      label: const Text('Apple ile devam et'),
+                                      onPressed: authController.isLoading.value
+                                          ? null
+                                          : () async {
+                                              try {
+                                                await authController.signInWithApple();
+                                              } catch (e) {
+                                                _showError(e.toString());
+                                              }
+                                            },
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () => Get.to(() => const GuestHomePage()),
+                              child: const Text('Misafir olarak devam et'),
                             ),
                           ],
                         ),

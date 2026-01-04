@@ -13,7 +13,9 @@ import '../controllers/exercise_controller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class EditPlanPage extends StatefulWidget {
-  const EditPlanPage({super.key});
+  const EditPlanPage({super.key, this.userId});
+
+  final String? userId;
 
   @override
   State<EditPlanPage> createState() => _EditPlanPageState();
@@ -22,7 +24,15 @@ class EditPlanPage extends StatefulWidget {
 class _EditPlanPageState extends State<EditPlanPage> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _planNameController = TextEditingController();
-  final List<String> categories = ['Tümü', 'Sırt', 'Göğüs', 'Bacak', 'Kardiyo', 'Omuz'];
+  final List<String> categories = [
+    'Tümü',
+    'Sırt',
+    'Göğüs',
+    'Bacak',
+    'Karın',
+    'Kardiyo',
+    'Omuz',
+  ];
   String selectedCategory = 'Tümü';
   final ExerciseRepository _repository = ExerciseRepository();
   bool _loading = false;
@@ -32,9 +42,10 @@ class _EditPlanPageState extends State<EditPlanPage> {
   late final Map<String, bool> _selectedDays;
 
   String get _userId =>
-      Get.isRegistered<ExerciseController>()
+      widget.userId ??
+      (Get.isRegistered<ExerciseController>()
           ? Get.find<ExerciseController>().userId
-          : (FirebaseAuth.instance.currentUser?.uid ?? 'demoUser');
+          : FirebaseAuth.instance.currentUser!.uid);
 
   @override
   void initState() {
@@ -268,12 +279,22 @@ class _EditPlanPageState extends State<EditPlanPage> {
                                       ? '${p.category} • ${p.sets} x ${p.seconds ?? p.reps} sn'
                                       : '${p.category} • ${p.sets} x ${p.reps}',
                                 ),
-                                trailing: IconButton(
-                                  icon: const Icon(CupertinoIcons.trash),
-                                  onPressed: () => setState(
-                                    () => _planned.removeWhere(
-                                        (e) => e.exerciseId == p.exerciseId),
-                                  ),
+                                onTap: () => _openEditPlannedSheet(p),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(CupertinoIcons.pencil),
+                                      onPressed: () => _openEditPlannedSheet(p),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(CupertinoIcons.trash),
+                                      onPressed: () => setState(
+                                        () => _planned.removeWhere(
+                                            (e) => e.exerciseId == p.exerciseId),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -358,6 +379,93 @@ class _EditPlanPageState extends State<EditPlanPage> {
                 label: 'Ekle',
                 onPressed: () {
                   Get.back();
+                  _addPlannedExercise(
+                    exercise: exercise,
+                    sets: setsController.text,
+                    reps: repsController.text,
+                    weight: weightController.text,
+                    type: type,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openEditPlannedSheet(PlannedExercise planned) async {
+    final setsController = TextEditingController(text: planned.sets.toString());
+    final repsValue = planned.type == 'time'
+        ? (planned.seconds ?? planned.reps)
+        : planned.reps;
+    final repsController = TextEditingController(text: repsValue.toString());
+    final weightController = TextEditingController(
+      text: planned.weight?.toStringAsFixed(1) ?? '',
+    );
+    String type = planned.type;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(planned.name, style: Theme.of(context).textTheme.titleMedium),
+              AppSpacing.vMd,
+              TextField(
+                controller: setsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Set'),
+              ),
+              AppSpacing.vSm,
+              TextField(
+                controller: repsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Tekrar / Süre'),
+              ),
+              AppSpacing.vSm,
+              TextField(
+                controller: weightController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Ağırlık (kg)'),
+              ),
+              AppSpacing.vSm,
+              DropdownButtonFormField<String>(
+                value: type,
+                decoration: const InputDecoration(labelText: 'Tür'),
+                items: const [
+                  DropdownMenuItem(value: 'weight', child: Text('Weight')),
+                  DropdownMenuItem(value: 'time', child: Text('Time')),
+                  DropdownMenuItem(value: 'reps', child: Text('Reps')),
+                ],
+                onChanged: (val) => type = val ?? 'weight',
+              ),
+              AppSpacing.vMd,
+              PrimaryButton(
+                label: 'Güncelle',
+                onPressed: () {
+                  Get.back();
+                  final exercise = Exercise(
+                    id: planned.exerciseId,
+                    name: planned.name,
+                    category: planned.category,
+                    type: planned.type,
+                    description: planned.description,
+                  );
                   _addPlannedExercise(
                     exercise: exercise,
                     sets: setsController.text,

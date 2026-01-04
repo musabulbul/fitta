@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'weight_chart_page.dart';
 import '../controllers/weight_controller.dart';
@@ -11,7 +12,18 @@ import 'package:fitta/core/widgets/fitta_card.dart';
 import 'package:fitta/core/widgets/primary_button.dart';
 
 class WeightPage extends StatefulWidget {
-  const WeightPage({super.key});
+  const WeightPage({
+    super.key,
+    this.userId,
+    this.clientName,
+    this.readOnly = false,
+    this.onBackToProfile,
+  });
+
+  final String? userId;
+  final String? clientName;
+  final bool readOnly;
+  final VoidCallback? onBackToProfile;
 
   @override
   State<WeightPage> createState() => _WeightPageState();
@@ -35,9 +47,21 @@ class _WeightPageState extends State<WeightPage> {
   }
 
   WeightController _provideController() {
-    if (Get.isRegistered<WeightController>()) return Get.find<WeightController>();
-    const demoUserId = 'demoUser';
-    return Get.put(WeightController(repository: WeightRepository(), userId: demoUserId));
+    final userId = widget.userId ?? FirebaseAuth.instance.currentUser!.uid;
+    final tag = _controllerTag();
+    if (tag != null) {
+      if (Get.isRegistered<WeightController>(tag: tag)) {
+        return Get.find<WeightController>(tag: tag);
+      }
+      return Get.put(
+        WeightController(repository: WeightRepository(), userId: userId),
+        tag: tag,
+      );
+    }
+    if (Get.isRegistered<WeightController>()) {
+      return Get.find<WeightController>();
+    }
+    return Get.put(WeightController(repository: WeightRepository(), userId: userId));
   }
 
   void _bindInputs() {
@@ -60,6 +84,10 @@ class _WeightPageState extends State<WeightPage> {
 
   @override
   void dispose() {
+    final tag = _controllerTag();
+    if (tag != null && Get.isRegistered<WeightController>(tag: tag)) {
+      Get.delete<WeightController>(tag: tag);
+    }
     weightCtrl.dispose();
     heightCtrl.dispose();
     waistCtrl.dispose();
@@ -71,8 +99,23 @@ class _WeightPageState extends State<WeightPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = widget.clientName?.isNotEmpty == true
+        ? '${widget.clientName} • Kilo & Yağ Oranı'
+        : 'Kilo & Yağ Oranı';
+    final actions = <Widget>[];
+    if (widget.onBackToProfile != null) {
+      actions.add(
+        TextButton(
+          onPressed: widget.onBackToProfile,
+          child: const Text('Profilim'),
+        ),
+      );
+    }
     return Scaffold(
-      appBar: const FittaAppBar(title: 'Kilo & Yağ Oranı'),
+      appBar: FittaAppBar(
+        title: title,
+        actions: actions.isEmpty ? null : actions,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -86,11 +129,12 @@ class _WeightPageState extends State<WeightPage> {
                   controller: weightCtrl,
                   keyboardType: TextInputType.number,
                   style: theme.textTheme.headlineLarge,
+                  enabled: !widget.readOnly,
                   decoration: const InputDecoration(
                     suffixText: 'kg',
                     hintText: 'Örn: 80.5',
                   ),
-                  onChanged: (v) => controller.weight.value = v,
+                  onChanged: widget.readOnly ? null : (v) => controller.weight.value = v,
                 ),
                 AppSpacing.vSm,
                 Text(
@@ -112,24 +156,28 @@ class _WeightPageState extends State<WeightPage> {
                   label: 'Boy (cm)',
                   controller: heightCtrl,
                   onChanged: (v) => controller.height.value = v,
+                  enabled: !widget.readOnly,
                 ),
                 AppSpacing.vSm,
                 _InputRow(
                   label: 'Bel (cm)',
                   controller: waistCtrl,
                   onChanged: (v) => controller.waist.value = v,
+                  enabled: !widget.readOnly,
                 ),
                 AppSpacing.vSm,
                 _InputRow(
                   label: 'Kalça (Sadece Kadınlar)',
                   controller: hipCtrl,
                   onChanged: (v) => controller.hip.value = v,
+                  enabled: !widget.readOnly,
                 ),
                 AppSpacing.vSm,
                 _InputRow(
                   label: 'Boyun (cm)',
                   controller: neckCtrl,
                   onChanged: (v) => controller.neck.value = v,
+                  enabled: !widget.readOnly,
                 ),
                 AppSpacing.vSm,
                 Obx(
@@ -140,7 +188,9 @@ class _WeightPageState extends State<WeightPage> {
                           value: 'male',
                           groupValue: controller.gender.value,
                           title: const Text('Erkek'),
-                          onChanged: (v) => controller.gender.value = v ?? 'male',
+                          onChanged: widget.readOnly
+                              ? null
+                              : (v) => controller.gender.value = v ?? 'male',
                         ),
                       ),
                       Expanded(
@@ -148,7 +198,9 @@ class _WeightPageState extends State<WeightPage> {
                           value: 'female',
                           groupValue: controller.gender.value,
                           title: const Text('Kadın'),
-                          onChanged: (v) => controller.gender.value = v ?? 'female',
+                          onChanged: widget.readOnly
+                              ? null
+                              : (v) => controller.gender.value = v ?? 'female',
                         ),
                       ),
                     ],
@@ -162,16 +214,30 @@ class _WeightPageState extends State<WeightPage> {
             () => PrimaryButton(
               label: controller.isLoading.value ? 'Kaydediliyor...' : 'Kaydet',
               icon: const Icon(CupertinoIcons.check_mark_circled_solid, size: 18),
-              onPressed: controller.isLoading.value ? null : controller.saveTodayEntry,
+              onPressed: widget.readOnly || controller.isLoading.value
+                  ? null
+                  : controller.saveTodayEntry,
             ),
           ),
           TextButton(
-            onPressed: () => Get.to(() => const WeightChartPage()),
+            onPressed: () => Get.to(
+              () => WeightChartPage(
+                userId: widget.userId,
+                clientName: widget.clientName,
+                readOnly: widget.readOnly,
+                onBackToProfile: widget.onBackToProfile,
+              ),
+            ),
             child: const Text('Grafikleri Gör'),
           ),
         ],
       ),
     );
+  }
+
+  String? _controllerTag() {
+    if (widget.userId == null) return null;
+    return 'weight-${widget.userId}';
   }
 }
 
@@ -180,19 +246,22 @@ class _InputRow extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.onChanged,
+    required this.enabled,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
+      enabled: enabled,
       decoration: InputDecoration(labelText: label),
-      onChanged: onChanged,
+      onChanged: enabled ? onChanged : null,
     );
   }
 }

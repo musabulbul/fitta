@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../controllers/weight_controller.dart';
 import '../data/weight_repository.dart';
@@ -10,7 +11,18 @@ import 'package:fitta/core/widgets/fitta_app_bar.dart';
 import 'package:fitta/core/widgets/fitta_card.dart';
 
 class WeightChartPage extends StatefulWidget {
-  const WeightChartPage({super.key});
+  const WeightChartPage({
+    super.key,
+    this.userId,
+    this.clientName,
+    this.readOnly = false,
+    this.onBackToProfile,
+  });
+
+  final String? userId;
+  final String? clientName;
+  final bool readOnly;
+  final VoidCallback? onBackToProfile;
 
   @override
   State<WeightChartPage> createState() => _WeightChartPageState();
@@ -18,6 +30,7 @@ class WeightChartPage extends StatefulWidget {
 
 class _WeightChartPageState extends State<WeightChartPage> {
   late final WeightController controller;
+  bool _ownsController = false;
 
   @override
   void initState() {
@@ -26,15 +39,59 @@ class _WeightChartPageState extends State<WeightChartPage> {
   }
 
   WeightController _provideController() {
-    if (Get.isRegistered<WeightController>()) return Get.find<WeightController>();
-    const demoUser = 'demoUser';
-    return Get.put(WeightController(repository: WeightRepository(), userId: demoUser));
+    final userId = widget.userId ?? FirebaseAuth.instance.currentUser!.uid;
+    final tag = _controllerTag();
+    if (tag != null) {
+      if (Get.isRegistered<WeightController>(tag: tag)) {
+        _ownsController = false;
+        return Get.find<WeightController>(tag: tag);
+      }
+      _ownsController = true;
+      return Get.put(
+        WeightController(repository: WeightRepository(), userId: userId),
+        tag: tag,
+      );
+    }
+    if (Get.isRegistered<WeightController>()) {
+      _ownsController = false;
+      return Get.find<WeightController>();
+    }
+    _ownsController = true;
+    return Get.put(WeightController(repository: WeightRepository(), userId: userId));
+  }
+
+  @override
+  void dispose() {
+    final tag = _controllerTag();
+    if (_ownsController) {
+      if (tag != null && Get.isRegistered<WeightController>(tag: tag)) {
+        Get.delete<WeightController>(tag: tag);
+      } else if (tag == null && Get.isRegistered<WeightController>()) {
+        Get.delete<WeightController>();
+      }
+    }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.clientName?.isNotEmpty == true
+        ? '${widget.clientName} • Kilo & Yağ Grafiği'
+        : 'Kilo & Yağ Grafiği';
+    final actions = <Widget>[];
+    if (widget.onBackToProfile != null) {
+      actions.add(
+        TextButton(
+          onPressed: widget.onBackToProfile,
+          child: const Text('Profilim'),
+        ),
+      );
+    }
     return Scaffold(
-      appBar: const FittaAppBar(title: 'Kilo & Yağ Grafiği'),
+      appBar: FittaAppBar(
+        title: title,
+        actions: actions.isEmpty ? null : actions,
+      ),
       body: Obx(() {
         final data = controller.entries.toList();
         if (data.isEmpty) {
@@ -158,11 +215,20 @@ class _WeightChartPageState extends State<WeightChartPage> {
             AppSpacing.vMd,
             Text('Kayıtlar', style: Theme.of(context).textTheme.headlineSmall),
             AppSpacing.vSm,
-            ...data.reversed.map((e) => _EntryTile(entry: e, controller: controller)), // Reversed for list view (newest first)
+            ...data.reversed.map((e) => _EntryTile(
+                  entry: e,
+                  controller: controller,
+                  readOnly: widget.readOnly,
+                )), // Reversed for list view (newest first)
           ],
         );
       }),
     );
+  }
+
+  String? _controllerTag() {
+    if (widget.userId == null) return null;
+    return 'weight-${widget.userId}';
   }
 }
 
@@ -200,10 +266,15 @@ class _LegendItem extends StatelessWidget {
 }
 
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({required this.entry, required this.controller});
+  const _EntryTile({
+    required this.entry,
+    required this.controller,
+    required this.readOnly,
+  });
 
   final WeightEntry entry;
   final WeightController controller;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -215,25 +286,24 @@ class _EntryTile extends StatelessWidget {
         child: ListTile(
           title: Text('$date • ${entry.weight.toStringAsFixed(1)} kg'),
           subtitle: Text('Yağ %: $fat'),
-          trailing: PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'edit') {
-                 // Navigate back to main page and fill values?
-                 // Or easier: show a dialog. For now, let's just use the main page logic
-                 // But main page is "Today".
-                 // The prompt implies updating "the record".
-                 // So we need an update mechanism.
-                 // For simplicity in this task, I'll trigger an Edit Dialog.
-                 _showEditDialog(context, entry);
-              } else if (value == 'delete') {
-                controller.deleteEntry(entry.id);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'edit', child: Text('Güncelle')),
-              const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
-            ],
-          ),
+          trailing: readOnly
+              ? null
+              : PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showEditDialog(context, entry);
+                    } else if (value == 'delete') {
+                      controller.deleteEntry(entry.id);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Güncelle')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Sil', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

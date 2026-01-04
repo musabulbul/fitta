@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'measurement_history_page.dart';
 import '../controllers/measurement_controller.dart';
@@ -10,7 +11,18 @@ import 'package:fitta/core/widgets/fitta_card.dart';
 import 'package:fitta/core/widgets/primary_button.dart';
 
 class MeasurementsPage extends StatefulWidget {
-  const MeasurementsPage({super.key});
+  const MeasurementsPage({
+    super.key,
+    this.userId,
+    this.clientName,
+    this.readOnly = false,
+    this.onBackToProfile,
+  });
+
+  final String? userId;
+  final String? clientName;
+  final bool readOnly;
+  final VoidCallback? onBackToProfile;
 
   @override
   State<MeasurementsPage> createState() => _MeasurementsPageState();
@@ -33,11 +45,26 @@ class _MeasurementsPageState extends State<MeasurementsPage> {
   }
 
   MeasurementController _provideController() {
-    if (Get.isRegistered<MeasurementController>()) return Get.find<MeasurementController>();
-    const demoUserId = 'demoUser';
+    final userId = widget.userId ?? FirebaseAuth.instance.currentUser!.uid;
+    final tag = _controllerTag();
+    if (tag != null) {
+      if (Get.isRegistered<MeasurementController>(tag: tag)) {
+        return Get.find<MeasurementController>(tag: tag);
+      }
+      return Get.put(
+        MeasurementController(
+          repository: MeasurementRepository(),
+          userId: userId,
+        ),
+        tag: tag,
+      );
+    }
+    if (Get.isRegistered<MeasurementController>()) {
+      return Get.find<MeasurementController>();
+    }
     return Get.put(MeasurementController(
       repository: MeasurementRepository(),
-      userId: demoUserId,
+      userId: userId,
     ));
   }
 
@@ -64,6 +91,10 @@ class _MeasurementsPageState extends State<MeasurementsPage> {
 
   @override
   void dispose() {
+    final tag = _controllerTag();
+    if (tag != null && Get.isRegistered<MeasurementController>(tag: tag)) {
+      Get.delete<MeasurementController>(tag: tag);
+    }
     chestCtrl.dispose();
     waistCtrl.dispose();
     hipCtrl.dispose();
@@ -76,8 +107,23 @@ class _MeasurementsPageState extends State<MeasurementsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = widget.clientName?.isNotEmpty == true
+        ? '${widget.clientName} • Ölçü Takip'
+        : 'Ölçü Takip';
+    final actions = <Widget>[];
+    if (widget.onBackToProfile != null) {
+      actions.add(
+        TextButton(
+          onPressed: widget.onBackToProfile,
+          child: const Text('Profilim'),
+        ),
+      );
+    }
     return Scaffold(
-      appBar: const FittaAppBar(title: 'Ölçü Takip'),
+      appBar: FittaAppBar(
+        title: title,
+        actions: actions.isEmpty ? null : actions,
+      ),
       body: Obx(
         () => ListView(
           padding: const EdgeInsets.all(16),
@@ -90,34 +136,58 @@ class _MeasurementsPageState extends State<MeasurementsPage> {
                   AppSpacing.vSm,
                   Row(
                     children: [
-                      Expanded(child: _field('Göğüs (cm)', chestCtrl,
-                          (v) => controller.chest.value = v)),
+                      Expanded(
+                        child: _field(
+                          'Göğüs (cm)',
+                          chestCtrl,
+                          widget.readOnly ? null : (v) => controller.chest.value = v,
+                        ),
+                      ),
                       AppSpacing.hSm,
-                      Expanded(child: _field('Bel (cm)', waistCtrl,
-                          (v) => controller.waist.value = v)),
+                      Expanded(
+                        child: _field(
+                          'Bel (cm)',
+                          waistCtrl,
+                          widget.readOnly ? null : (v) => controller.waist.value = v,
+                        ),
+                      ),
                     ],
                   ),
                   AppSpacing.vSm,
                   Row(
                     children: [
                       Expanded(
-                          child: _field('Kalça (cm)', hipCtrl,
-                              (v) => controller.hip.value = v)),
+                          child: _field(
+                        'Kalça (cm)',
+                        hipCtrl,
+                        widget.readOnly ? null : (v) => controller.hip.value = v,
+                      )),
                       AppSpacing.hSm,
-                      Expanded(child: _field('Biceps (cm)', bicepsCtrl,
-                          (v) => controller.biceps.value = v)),
+                      Expanded(
+                        child: _field(
+                          'Biceps (cm)',
+                          bicepsCtrl,
+                          widget.readOnly ? null : (v) => controller.biceps.value = v,
+                        ),
+                      ),
                     ],
                   ),
                   AppSpacing.vSm,
                   Row(
                     children: [
                       Expanded(
-                          child: _field('Uyluk (cm)', thighCtrl,
-                              (v) => controller.thigh.value = v)),
+                          child: _field(
+                        'Uyluk (cm)',
+                        thighCtrl,
+                        widget.readOnly ? null : (v) => controller.thigh.value = v,
+                      )),
                       AppSpacing.hSm,
                       Expanded(
-                          child: _field('Baldır (cm)', calfCtrl,
-                              (v) => controller.calf.value = v)),
+                          child: _field(
+                        'Baldır (cm)',
+                        calfCtrl,
+                        widget.readOnly ? null : (v) => controller.calf.value = v,
+                      )),
                     ],
                   ),
                   AppSpacing.vMd,
@@ -125,10 +195,17 @@ class _MeasurementsPageState extends State<MeasurementsPage> {
                     label:
                         controller.isLoading.value ? 'Kaydediliyor...' : 'Kaydet',
                     onPressed:
-                        controller.isLoading.value ? null : controller.saveTodayEntry,
+                        widget.readOnly || controller.isLoading.value
+                            ? null
+                            : controller.saveTodayEntry,
                   ),
                   TextButton(
-                    onPressed: () => Get.to(() => const MeasurementHistoryPage()),
+                    onPressed: () => Get.to(
+                      () => MeasurementHistoryPage(
+                        userId: widget.userId,
+                        clientName: widget.clientName,
+                      ),
+                    ),
                     child: const Text('Geçmişi Gör'),
                   ),
                 ],
@@ -140,12 +217,22 @@ class _MeasurementsPageState extends State<MeasurementsPage> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, ValueChanged<String> onChanged) {
+  Widget _field(
+    String label,
+    TextEditingController ctrl,
+    ValueChanged<String>? onChanged,
+  ) {
     return TextField(
       controller: ctrl,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(labelText: label),
+      enabled: onChanged != null,
       onChanged: onChanged,
     );
+  }
+
+  String? _controllerTag() {
+    if (widget.userId == null) return null;
+    return 'measurement-${widget.userId}';
   }
 }

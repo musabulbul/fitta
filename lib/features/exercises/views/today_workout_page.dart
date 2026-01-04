@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'edit_plan_page.dart';
+import 'saved_plans_page.dart';
 import 'exercise_history_page.dart';
 import '../controllers/exercise_controller.dart';
 import '../data/exercise_repository.dart';
@@ -14,7 +15,18 @@ import 'package:fitta/core/theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class TodayWorkoutPage extends StatefulWidget {
-  const TodayWorkoutPage({super.key});
+  const TodayWorkoutPage({
+    super.key,
+    this.userId,
+    this.clientName,
+    this.readOnly = false,
+    this.onBackToProfile,
+  });
+
+  final String? userId;
+  final String? clientName;
+  final bool readOnly;
+  final VoidCallback? onBackToProfile;
 
   @override
   State<TodayWorkoutPage> createState() => _TodayWorkoutPageState();
@@ -22,6 +34,11 @@ class TodayWorkoutPage extends StatefulWidget {
 
 class _TodayWorkoutPageState extends State<TodayWorkoutPage> {
   late final ExerciseController controller;
+  String? get _controllerTag =>
+      widget.userId == null ? null : 'exercise-${widget.userId}';
+
+  String get _activeUserId =>
+      widget.userId ?? FirebaseAuth.instance.currentUser!.uid;
 
   @override
   void initState() {
@@ -30,29 +47,76 @@ class _TodayWorkoutPageState extends State<TodayWorkoutPage> {
   }
 
   ExerciseController _provideController() {
+    final userId = _activeUserId;
+    final tag = _controllerTag;
+    if (tag != null) {
+      if (Get.isRegistered<ExerciseController>(tag: tag)) {
+        return Get.find<ExerciseController>(tag: tag);
+      }
+      final ctrl = ExerciseController(
+        repository: ExerciseRepository(),
+        userId: userId,
+      );
+      return Get.put(ctrl, tag: tag);
+    }
     if (Get.isRegistered<ExerciseController>()) {
       return Get.find<ExerciseController>();
     }
-    final demoUserId = FirebaseAuth.instance.currentUser?.uid ?? 'demoUser';
     final ctrl = ExerciseController(
       repository: ExerciseRepository(),
-      userId: demoUserId,
+      userId: userId,
     );
     return Get.put(ctrl);
   }
 
   @override
+  void dispose() {
+    final tag = _controllerTag;
+    if (tag != null && Get.isRegistered<ExerciseController>(tag: tag)) {
+      Get.delete<ExerciseController>(tag: tag);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.clientName?.isNotEmpty == true
+        ? '${widget.clientName} • Bugünkü Antrenman'
+        : 'Bugünkü Antrenman';
+    final actions = <Widget>[];
+    if (!widget.readOnly) {
+      actions.add(
+        IconButton(
+          icon: const Icon(CupertinoIcons.pencil),
+          tooltip: 'Gün Planı Düzenle',
+          onPressed: () => Get.to(() => EditPlanPage(userId: _activeUserId)),
+        ),
+      );
+      actions.add(
+        IconButton(
+          icon: const Icon(CupertinoIcons.square_list),
+          tooltip: 'Kayıtlı Planlar',
+          onPressed: () => Get.to(
+            () => SavedPlansPage(
+              userId: _activeUserId,
+              clientName: widget.clientName,
+            ),
+          ),
+        ),
+      );
+    }
+    if (widget.onBackToProfile != null) {
+      actions.add(
+        TextButton(
+          onPressed: widget.onBackToProfile,
+          child: const Text('Profilim'),
+        ),
+      );
+    }
     return Scaffold(
       appBar: FittaAppBar(
-        title: 'Bugünkü Antrenman',
-        actions: [
-          IconButton(
-            icon: const Icon(CupertinoIcons.square_list),
-            tooltip: 'Plan Düzenle',
-            onPressed: () => Get.to(() => const EditPlanPage()),
-          ),
-        ],
+        title: title,
+        actions: actions.isEmpty ? null : actions,
       ),
       body: Column(
         children: [
@@ -128,11 +192,18 @@ class _TodayWorkoutPageState extends State<TodayWorkoutPage> {
                         plan: plan,
                         logs: logs,
                         controller: controller,
+                        userId: _activeUserId,
+                        readOnly: widget.readOnly,
                       ),
                     );
                   }
 
-                  return _CompletedSection(plans: completedPlans, controller: controller);
+                  return _CompletedSection(
+                    plans: completedPlans,
+                    controller: controller,
+                    userId: _activeUserId,
+                    readOnly: widget.readOnly,
+                  );
                 },
               );
             }),
@@ -181,10 +252,17 @@ class _DaySelector extends StatelessWidget {
 enum _WorkoutMenuAction { move, remove }
 
 class _CompletedSection extends StatelessWidget {
-  const _CompletedSection({required this.plans, required this.controller});
+  const _CompletedSection({
+    required this.plans,
+    required this.controller,
+    required this.userId,
+    required this.readOnly,
+  });
 
   final List<PlannedExercise> plans;
   final ExerciseController controller;
+  final String userId;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -205,6 +283,8 @@ class _CompletedSection extends StatelessWidget {
               plan: plan,
               logs: logs,
               controller: controller,
+              userId: userId,
+              readOnly: readOnly,
             ),
           );
         }),
@@ -218,11 +298,15 @@ class _WorkoutCard extends StatelessWidget {
     required this.plan,
     required this.logs,
     required this.controller,
+    required this.userId,
+    required this.readOnly,
   });
 
   final PlannedExercise plan;
   final List<SetLog> logs;
   final ExerciseController controller;
+  final String userId;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -243,30 +327,36 @@ class _WorkoutCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ExpansionTile(
+              key: ValueKey(
+                'workout-${plan.exerciseId}-${saved ? 'saved' : 'open'}',
+              ),
               tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _SaveExerciseButton(
-                    controller: controller,
-                    plan: plan,
-                    compact: true,
-                  ),
-                  PopupMenuButton<_WorkoutMenuAction>(
-                    icon: const Icon(CupertinoIcons.ellipsis_vertical),
-                    onSelected: (action) => _handleMenuAction(context, action),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: _WorkoutMenuAction.move,
-                        child: Text('Günü değiştir'),
-                      ),
-                      PopupMenuItem(
-                        value: _WorkoutMenuAction.remove,
-                        child: Text('Plandan çıkar'),
-                      ),
-                    ],
-                  ),
+                  if (!readOnly)
+                    _SaveExerciseButton(
+                      controller: controller,
+                      plan: plan,
+                      compact: true,
+                      readOnly: readOnly,
+                    ),
+                  if (!readOnly)
+                    PopupMenuButton<_WorkoutMenuAction>(
+                      icon: const Icon(CupertinoIcons.ellipsis_vertical),
+                      onSelected: (action) => _handleMenuAction(context, action),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: _WorkoutMenuAction.move,
+                          child: Text('Günü değiştir'),
+                        ),
+                        PopupMenuItem(
+                          value: _WorkoutMenuAction.remove,
+                          child: Text('Plandan çıkar'),
+                        ),
+                      ],
+                    ),
                   const Icon(CupertinoIcons.chevron_down),
                 ],
               ),
@@ -310,6 +400,7 @@ class _WorkoutCard extends StatelessWidget {
                     child: _SetRow(
                       plan: plan,
                       setLog: existing,
+                      readOnly: readOnly,
                       onChanged: (reps, weight, seconds) => controller.updateSetLog(
                         exerciseId: plan.exerciseId,
                         setNo: setNo,
@@ -327,18 +418,22 @@ class _WorkoutCard extends StatelessWidget {
                       (plan.type == 'time'
                           ? plan.seconds?.toDouble()
                           : plan.nextWeight ?? plan.weight),
-                onChanged: (value) => controller.updateNextWeight(plan.exerciseId, value),
+                  onChanged: (value) => controller.updateNextWeight(plan.exerciseId, value),
+                  readOnly: readOnly,
                 ),
                 AppSpacing.vSm,
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _SaveExerciseButton(
-                    controller: controller,
-                    plan: plan,
-                    compact: false,
+                if (!readOnly) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _SaveExerciseButton(
+                      controller: controller,
+                      plan: plan,
+                      compact: false,
+                      readOnly: readOnly,
+                    ),
                   ),
-                ),
-                AppSpacing.vSm,
+                  AppSpacing.vSm,
+                ],
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
@@ -346,6 +441,7 @@ class _WorkoutCard extends StatelessWidget {
                       () => ExerciseHistoryPage(
                         exerciseId: plan.exerciseId,
                         exerciseName: plan.name,
+                        userId: userId,
                       ),
                     ),
                     icon: const Icon(CupertinoIcons.time),
@@ -462,14 +558,17 @@ class _SaveExerciseButton extends StatelessWidget {
     required this.controller,
     required this.plan,
     required this.compact,
+    required this.readOnly,
   });
 
   final ExerciseController controller;
   final PlannedExercise plan;
   final bool compact;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
+    if (readOnly) return const SizedBox.shrink();
     return Obx(() {
       final saving = controller.savingExercises[plan.exerciseId] ?? false;
       final saved = controller.savedExercises[plan.exerciseId] ?? false;
@@ -519,11 +618,13 @@ class _SetRow extends StatefulWidget {
     required this.plan,
     required this.setLog,
     required this.onChanged,
+    required this.readOnly,
   });
 
   final PlannedExercise plan;
   final SetLog setLog;
   final void Function(int reps, double? weight, int? seconds) onChanged;
+  final bool readOnly;
 
   @override
   State<_SetRow> createState() => _SetRowState();
@@ -601,20 +702,24 @@ class _SetRowState extends State<_SetRow> {
                     ? secondsController
                     : repsController,
                 keyboardType: TextInputType.number,
+                enabled: !widget.readOnly,
                 decoration: InputDecoration(
                   labelText: widget.plan.type == 'time' ? 'Süre (sn)' : 'Tekrar',
                 ),
-                onChanged: (value) {
-                  final parsed = int.tryParse(value) ?? 0;
-                  final weight = widget.plan.type == 'time'
-                      ? widget.setLog.weight
-                      : double.tryParse(weightController.text);
-                  final seconds =
-                      widget.plan.type == 'time' ? parsed : widget.setLog.seconds;
-                  final reps =
-                      widget.plan.type == 'time' ? widget.setLog.reps : parsed;
-                  widget.onChanged(reps, weight, seconds);
-                },
+                onChanged: widget.readOnly
+                    ? null
+                    : (value) {
+                        final parsed = int.tryParse(value) ?? 0;
+                        final weight = widget.plan.type == 'time'
+                            ? widget.setLog.weight
+                            : double.tryParse(weightController.text);
+                        final seconds = widget.plan.type == 'time'
+                            ? parsed
+                            : widget.setLog.seconds;
+                        final reps =
+                            widget.plan.type == 'time' ? widget.setLog.reps : parsed;
+                        widget.onChanged(reps, weight, seconds);
+                      },
               ),
             ),
             AppSpacing.hSm,
@@ -624,20 +729,23 @@ class _SetRowState extends State<_SetRow> {
                     'weight-${widget.plan.exerciseId}-${widget.setLog.setNo}'),
                 controller: weightController,
                 keyboardType: TextInputType.number,
+                enabled: !widget.readOnly,
                 decoration: InputDecoration(
                   labelText:
                       widget.plan.type == 'time' ? 'Notlar' : 'Ağırlık (kg)',
                 ),
-                onChanged: (value) {
-                  final weight = double.tryParse(value);
-                  final seconds = widget.plan.type == 'time'
-                      ? int.tryParse(secondsController.text)
-                      : widget.setLog.seconds;
-                  final reps = widget.plan.type == 'time'
-                      ? widget.setLog.reps
-                      : int.tryParse(repsController.text) ?? 0;
-                  widget.onChanged(reps, weight, seconds);
-                },
+                onChanged: widget.readOnly
+                    ? null
+                    : (value) {
+                        final weight = double.tryParse(value);
+                        final seconds = widget.plan.type == 'time'
+                            ? int.tryParse(secondsController.text)
+                            : widget.setLog.seconds;
+                        final reps = widget.plan.type == 'time'
+                            ? widget.setLog.reps
+                            : int.tryParse(repsController.text) ?? 0;
+                        widget.onChanged(reps, weight, seconds);
+                      },
               ),
             ),
           ],
@@ -652,11 +760,13 @@ class _NextWeightField extends StatefulWidget {
     required this.initialValue,
     required this.onChanged,
     required this.type,
+    required this.readOnly,
   });
 
   final double? initialValue;
   final String type;
   final void Function(double?) onChanged;
+  final bool readOnly;
 
   @override
   State<_NextWeightField> createState() => _NextWeightFieldState();
@@ -718,13 +828,15 @@ class _NextWeightFieldState extends State<_NextWeightField> {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
+      enabled: !widget.readOnly,
       decoration: InputDecoration(
         labelText: isTime
             ? 'Sonraki seans için süre (sn)'
             : 'Sonraki seans için ağırlık',
         hintText: isTime ? 'Örn: 60' : 'Örn: 35',
       ),
-      onChanged: (value) => widget.onChanged(double.tryParse(value)),
+      onChanged:
+          widget.readOnly ? null : (value) => widget.onChanged(double.tryParse(value)),
     );
   }
 }

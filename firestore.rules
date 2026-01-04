@@ -37,7 +37,54 @@ service cloud.firestore {
         || isTrainerFor(userId);
     }
 
+    function sharedPermissions(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)/sharedWith/$(request.auth.uid)).data;
+    }
+
+    function hasPermission(userId, key) {
+      let data = sharedPermissions(userId);
+      return isSignedIn()
+        && data != null
+        && (
+          !data.keys().hasAny(['permissions'])
+          || data.permissions[key] == true
+        );
+    }
+
+    function canReadWorkouts(userId) {
+      return isOwner(userId)
+        || ((isTrainerFor(userId) || isViewerFor(userId)) && hasPermission(userId, 'workouts'));
+    }
+
+    function canWriteWorkouts(userId) {
+      return isOwner(userId)
+        || (isTrainerFor(userId) && hasPermission(userId, 'workouts'));
+    }
+
+    function canReadWeight(userId) {
+      return isOwner(userId)
+        || ((isTrainerFor(userId) || isViewerFor(userId)) && hasPermission(userId, 'weight'));
+    }
+
+    function canWriteWeight(userId) {
+      return isOwner(userId)
+        || (isTrainerFor(userId) && hasPermission(userId, 'weight'));
+    }
+
+    function canReadMeasurements(userId) {
+      return isOwner(userId)
+        || ((isTrainerFor(userId) || isViewerFor(userId)) && hasPermission(userId, 'measurements'));
+    }
+
+    function canWriteMeasurements(userId) {
+      return isOwner(userId)
+        || (isTrainerFor(userId) && hasPermission(userId, 'measurements'));
+    }
+
     match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isOwner(userId);
+
       match /profile {
         allow read: if canReadUserData(userId);
         allow write, update, delete: if isOwner(userId);
@@ -45,23 +92,33 @@ service cloud.firestore {
       }
 
       match /workoutPlans/{planId} {
-        allow read: if canReadUserData(userId);
-        allow write, update, delete, create: if canWriteUserData(userId);
+        allow read: if canReadWorkouts(userId);
+        allow write, update, delete, create: if canWriteWorkouts(userId);
+      }
+
+      match /planTemplates/{templateId} {
+        allow read: if canReadWorkouts(userId);
+        allow write, update, delete, create: if canWriteWorkouts(userId);
       }
 
       match /workoutSessions/{sessionId} {
-        allow read: if canReadUserData(userId);
-        allow write, update, delete, create: if canWriteUserData(userId);
+        allow read: if canReadWorkouts(userId);
+        allow write, update, delete, create: if canWriteWorkouts(userId);
+      }
+
+      match /packages/{packageId} {
+        allow read: if canReadWorkouts(userId);
+        allow write, update, delete, create: if canWriteWorkouts(userId);
       }
 
       match /bodyStats/{entryId} {
-        allow read: if canReadUserData(userId);
-        allow write, update, delete, create: if canWriteUserData(userId);
+        allow read: if canReadWeight(userId);
+        allow write, update, delete, create: if canWriteWeight(userId);
       }
 
       match /measurements/{entryId} {
-        allow read: if canReadUserData(userId);
-        allow write, update, delete, create: if canWriteUserData(userId);
+        allow read: if canReadMeasurements(userId);
+        allow write, update, delete, create: if canWriteMeasurements(userId);
       }
 
       match /sharedWith/{shareId} {
@@ -69,12 +126,19 @@ service cloud.firestore {
       }
 
       match /clients/{clientId} {
-        allow read, write, update, delete, create: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          || (isSignedIn()
+            && request.auth.uid == clientId
+            && request.resource.data.ownerUserId == request.auth.uid);
+        allow update, delete: if isOwner(userId)
+          || (isSignedIn() && request.auth.uid == clientId
+            && resource.data.ownerUserId == request.auth.uid);
       }
     }
 
     function isAdminUid(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)/profile).data.isAdmin == true;
+      return get(/databases/$(database)/documents/users/$(uid)).data.isAdmin == true;
     }
 
     match /globalExercises/{exerciseId} {

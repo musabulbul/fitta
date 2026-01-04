@@ -5,16 +5,25 @@ import '../controllers/sharing_controller.dart';
 import '../data/sharing_repository.dart';
 import '../models/client_link.dart';
 import '../models/share_permission.dart';
+import 'client_shell.dart';
 import 'package:fitta/core/utils/app_spacing.dart';
 import 'package:fitta/core/widgets/fitta_app_bar.dart';
 import 'package:fitta/core/widgets/fitta_card.dart';
 import 'package:fitta/core/widgets/primary_button.dart';
 
 class SharingPage extends StatefulWidget {
-  const SharingPage({super.key, this.ownerUserId, this.currentUserEmail});
+  const SharingPage({
+    super.key,
+    required this.ownerUserId,
+    required this.currentUserEmail,
+    required this.ownerDisplayName,
+    required this.ownerPhotoUrl,
+  });
 
-  final String? ownerUserId;
-  final String? currentUserEmail;
+  final String ownerUserId;
+  final String currentUserEmail;
+  final String ownerDisplayName;
+  final String ownerPhotoUrl;
 
   @override
   State<SharingPage> createState() => _SharingPageState();
@@ -34,20 +43,30 @@ class _SharingPageState extends State<SharingPage> {
   }
 
   SharingController _provideController() {
-    if (Get.isRegistered<SharingController>()) return Get.find<SharingController>();
-    const demoUserId = 'demoUser';
-    const demoEmail = 'demo@example.com';
+    if (Get.isRegistered<SharingController>()) {
+      final existing = Get.find<SharingController>();
+      if (existing.ownerUserId == widget.ownerUserId &&
+          existing.currentUserEmail == widget.currentUserEmail) {
+        return existing;
+      }
+      Get.delete<SharingController>();
+    }
     return Get.put(
       SharingController(
         repository: SharingRepository(),
-        ownerUserId: widget.ownerUserId ?? demoUserId,
-        currentUserEmail: widget.currentUserEmail ?? demoEmail,
+        ownerUserId: widget.ownerUserId,
+        currentUserEmail: widget.currentUserEmail,
+        ownerDisplayName: widget.ownerDisplayName,
+        ownerPhotoUrl: widget.ownerPhotoUrl,
       ),
     );
   }
 
   @override
   void dispose() {
+    if (Get.isRegistered<SharingController>()) {
+      Get.delete<SharingController>();
+    }
     emailCtrl.dispose();
     super.dispose();
   }
@@ -98,6 +117,46 @@ class _SharingPageState extends State<SharingPage> {
                         ),
                       ),
                     ],
+                  ),
+                  AppSpacing.vSm,
+                  Text('Paylaşılacak Bilgiler', style: theme.textTheme.titleMedium),
+                  Obx(
+                    () => Column(
+                      children: [
+                        CheckboxListTile(
+                          value: controller.sharePhoto.value,
+                          title: const Text('Fotoğraf'),
+                          subtitle: const Text('Profil fotoğrafını paylaş'),
+                          onChanged: (v) => controller.sharePhoto.value = v ?? true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        CheckboxListTile(
+                          value: controller.shareWorkouts.value,
+                          title: const Text('Egzersiz Bilgileri'),
+                          subtitle: const Text('Antrenman planı ve geçmişi'),
+                          onChanged: (v) => controller.shareWorkouts.value = v ?? true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        CheckboxListTile(
+                          value: controller.shareWeight.value,
+                          title: const Text('Kilo Bilgileri'),
+                          subtitle: const Text('Kilo ve yağ oranı kayıtları'),
+                          onChanged: (v) => controller.shareWeight.value = v ?? true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        CheckboxListTile(
+                          value: controller.shareMeasurements.value,
+                          title: const Text('Ölçü Bilgileri'),
+                          subtitle: const Text('Vücut ölçü kayıtları'),
+                          onChanged: (v) => controller.shareMeasurements.value = v ?? true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ],
+                    ),
                   ),
                   AppSpacing.vSm,
                   PrimaryButton(
@@ -155,16 +214,27 @@ class _ShareTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final permissions = _permissionSummary(share);
+    final displayName = share.targetDisplayName.isNotEmpty
+        ? share.targetDisplayName
+        : (share.targetEmail.isNotEmpty ? share.targetEmail : share.targetUserId);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: FittaCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${share.targetUserId} - ${_roleLabel(share.role)}',
+            Text('$displayName - ${_roleLabel(share.role)}',
                 style: theme.textTheme.titleMedium),
             AppSpacing.vXs,
-            Text('User ID: ${share.targetUserId}', style: theme.textTheme.bodySmall),
+            if (share.targetEmail.isNotEmpty)
+              Text(share.targetEmail, style: theme.textTheme.bodySmall),
+            if (share.targetEmail.isEmpty)
+              Text('User ID: ${share.targetUserId}', style: theme.textTheme.bodySmall),
+            if (permissions.isNotEmpty) ...[
+              AppSpacing.vXs,
+              Text('Paylaşılanlar: $permissions', style: theme.textTheme.bodySmall),
+            ],
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -188,6 +258,15 @@ class _ShareTile extends StatelessWidget {
         return role;
     }
   }
+
+  String _permissionSummary(SharePermission share) {
+    final parts = <String>[];
+    if (share.sharePhoto) parts.add('Fotoğraf');
+    if (share.shareWorkouts) parts.add('Egzersiz');
+    if (share.shareWeight) parts.add('Kilo');
+    if (share.shareMeasurements) parts.add('Ölçü');
+    return parts.join(' • ');
+  }
 }
 
 class _ClientTile extends StatelessWidget {
@@ -198,22 +277,44 @@ class _ClientTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final name = client.ownerDisplayName.isNotEmpty
+        ? client.ownerDisplayName
+        : (client.ownerEmail.isNotEmpty ? client.ownerEmail : client.ownerUserId);
+    final permissions = _permissionSummary(client);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: FittaCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Kullanıcı: ${client.ownerUserId}', style: theme.textTheme.titleMedium),
-            AppSpacing.vXs,
-            Text('Rol: ${client.role}', style: theme.textTheme.bodySmall),
+            Row(
+              children: [
+                if (client.ownerPhotoUrl.isNotEmpty) ...[
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundImage: NetworkImage(client.ownerPhotoUrl),
+                  ),
+                  AppSpacing.hSm,
+                ],
+                Expanded(
+              child: Text(name, style: theme.textTheme.titleMedium),
+            ),
+          ],
+        ),
+        AppSpacing.vXs,
+        if (client.ownerEmail.isNotEmpty)
+          Text(client.ownerEmail, style: theme.textTheme.bodySmall),
+        Text('Rol: ${_roleLabel(client.role)}', style: theme.textTheme.bodySmall),
+        if (permissions.isNotEmpty) ...[
+          AppSpacing.vXs,
+              Text('Erişim: $permissions', style: theme.textTheme.bodySmall),
+            ],
             AppSpacing.vSm,
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
-                  Get.snackbar('Danışan', 'Profil açma eklenecek',
-                      snackPosition: SnackPosition.BOTTOM);
+                  Get.to(() => ClientShell(client: client));
                 },
                 child: const Text('Danışan Profilini Aç'),
               ),
@@ -222,5 +323,25 @@ class _ClientTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _permissionSummary(ClientLink client) {
+    final parts = <String>[];
+    if (client.sharePhoto) parts.add('Fotoğraf');
+    if (client.shareWorkouts) parts.add('Egzersiz');
+    if (client.shareWeight) parts.add('Kilo');
+    if (client.shareMeasurements) parts.add('Ölçü');
+    return parts.join(' • ');
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'trainer':
+        return 'Antrenör';
+      case 'viewer':
+        return 'Görüntüleyici';
+      default:
+        return role;
+    }
   }
 }

@@ -28,7 +28,15 @@ class _EditPackagePageState extends State<EditPackagePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> categories = ['Tümü', 'Sırt', 'Göğüs', 'Bacak', 'Kardiyo', 'Omuz'];
+  final List<String> categories = [
+    'Tümü',
+    'Sırt',
+    'Göğüs',
+    'Bacak',
+    'Karın',
+    'Kardiyo',
+    'Omuz',
+  ];
   String selectedCategory = 'Tümü';
   final ExerciseRepository _exerciseRepository = ExerciseRepository();
   final PackageRepository _packageRepository = PackageRepository();
@@ -38,7 +46,7 @@ class _EditPackagePageState extends State<EditPackagePage> {
   List<Exercise> _exercises = const [];
   final List<PlannedExercise> _planned = [];
 
-  String get _userId => FirebaseAuth.instance.currentUser?.uid ?? 'demoUser';
+  String get _userId => FirebaseAuth.instance.currentUser!.uid;
 
   @override
   void initState() {

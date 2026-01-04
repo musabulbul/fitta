@@ -13,11 +13,13 @@ class DayPlan {
     required this.dayKey,
     required this.exercises,
     this.name,
+    this.templateId,
   });
 
   final String dayKey;
   final List<PlannedExercise> exercises;
   final String? name;
+  final String? templateId;
 }
 
 class ExerciseRepository {
@@ -66,8 +68,14 @@ class ExerciseRepository {
           .map((e) => PlannedExercise.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList();
       final planName = data?['name'] as String?;
-      await _cachePlan(dayKey, plans, planName);
-      return DayPlan(dayKey: dayKey, exercises: plans, name: planName);
+      final templateId = data?['templateId'] as String?;
+      await _cachePlan(dayKey, plans, planName, templateId: templateId);
+      return DayPlan(
+        dayKey: dayKey,
+        exercises: plans,
+        name: planName,
+        templateId: templateId,
+      );
     } catch (e) {
       final cached = await _readCachedPlan(dayKey);
       if (cached.exercises.isNotEmpty) return cached;
@@ -83,16 +91,18 @@ class ExerciseRepository {
     required List<String> dayKeys,
     required List<PlannedExercise> exercises,
     String? planName,
+    String? templateId,
   }) async {
     final batch = firestore.batch();
     final Map<String, dynamic> payload = {
       'name': planName?.isEmpty == true ? null : planName,
       'exercises': exercises.map((e) => e.toMap()).toList(),
+      'templateId': templateId?.isEmpty == true ? null : templateId,
       'updatedAt': FieldValue.serverTimestamp(),
     };
     for (final day in dayKeys) {
       batch.set(_plansRef(userId).doc(day), {...payload, 'day': day});
-      await _cachePlan(day, exercises, planName);
+      await _cachePlan(day, exercises, planName, templateId: templateId);
     }
     await batch.commit();
   }
@@ -102,6 +112,7 @@ class ExerciseRepository {
     required String dayKey,
     required List<PlannedExercise> exercises,
     String? planName,
+    String? templateId,
   }) async {
     final Map<String, dynamic> payload = {
       'day': dayKey,
@@ -111,8 +122,43 @@ class ExerciseRepository {
     if (planName != null) {
       payload['name'] = planName.isEmpty ? null : planName;
     }
+    if (templateId != null) {
+      payload['templateId'] = templateId.isEmpty ? null : templateId;
+    }
     await _plansRef(userId).doc(dayKey).set(payload, SetOptions(merge: true));
-    await _cachePlan(dayKey, exercises, planName);
+    await _cachePlan(dayKey, exercises, planName, templateId: templateId);
+  }
+
+  Future<void> clearPlanForDays({
+    required String userId,
+    required List<String> dayKeys,
+  }) async {
+    final batch = firestore.batch();
+    final payload = {
+      'exercises': <Map<String, dynamic>>[],
+      'name': null,
+      'templateId': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    for (final day in dayKeys) {
+      batch.set(_plansRef(userId).doc(day), {...payload, 'day': day}, SetOptions(merge: true));
+      await _cachePlan(day, const [], null, templateId: null);
+    }
+    await batch.commit();
+  }
+
+  Stream<Map<String, String?>> watchTemplateAssignments(String userId) {
+    return _plansRef(userId).snapshots().map((snap) {
+      final assignments = <String, String?>{
+        for (final day in weekDayKeys) day: null,
+      };
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final dayKey = data['day'] as String? ?? doc.id;
+        assignments[dayKey] = data['templateId'] as String?;
+      }
+      return assignments;
+    });
   }
 
   Future<void> saveWorkoutSession({
@@ -125,7 +171,6 @@ class ExerciseRepository {
     List<PlannedExercise>? planForCache,
   }) async {
     try {
-      final planRef = _plansRef(userId).doc(planId);
       final existingSession = await _findSessionForDay(userId, planId, date);
       final sessionRef = existingSession?.reference ?? _sessionsRef(userId).doc();
       final existingData = existingSession?.data() as Map<String, dynamic>? ?? {};
@@ -139,13 +184,22 @@ class ExerciseRepository {
 
       for (final plan in planned) {
         final logs = logsByExerciseId[plan.exerciseId] ?? <SetLog>[];
+        final existing = existingMap[plan.exerciseId] as Map<String, dynamic>?;
+        final plannedSets =
+            (existing?['plannedSets'] as num?)?.toInt() ?? plan.sets;
+        final plannedReps =
+            (existing?['plannedReps'] as num?)?.toInt() ?? plan.reps;
+        final plannedWeight = existing?['plannedWeight'] ??
+            (plan.type == 'time' ? null : (plan.weight ?? plan.nextWeight));
+        final plannedSeconds = existing?['plannedSeconds'] ??
+            (plan.type == 'time' ? (plan.seconds ?? plan.reps) : null);
         existingMap[plan.exerciseId] = {
           'exerciseId': plan.exerciseId,
           'name': plan.name,
-          'plannedSets': plan.sets,
-          'plannedReps': plan.reps,
-          'plannedWeight': plan.type == 'time' ? null : (plan.weight ?? plan.nextWeight),
-          'plannedSeconds': plan.type == 'time' ? (plan.seconds ?? plan.reps) : null,
+          'plannedSets': plannedSets,
+          'plannedReps': plannedReps,
+          'plannedWeight': plannedWeight,
+          'plannedSeconds': plannedSeconds,
           'logs': logs.map((l) => l.toMap()).toList(),
         };
       }
@@ -160,40 +214,11 @@ class ExerciseRepository {
       await sessionRef.set(sessionData, SetOptions(merge: true));
 
       if (nextWeights.isNotEmpty) {
-        final planSnap = await planRef.get();
-        final planData = planSnap.data() as Map<String, dynamic>? ?? {};
-        final existingExercises = ((planData['exercises'] as List?) ?? [])
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-
-        final updatedExercises = existingExercises.map((exercise) {
-          final id = exercise['exerciseId'] as String? ?? '';
-          if (nextWeights.containsKey(id)) {
-            final weight = nextWeights[id];
-            final type = exercise['type'] as String? ?? 'weight';
-            if (type == 'time') {
-              exercise['seconds'] = weight?.toInt();
-              exercise['nextWeight'] = null;
-              exercise['weight'] = null;
-            } else {
-              exercise['weight'] = weight;
-              exercise['nextWeight'] = weight;
-            }
-          }
-          return exercise;
-        }).toList();
-
-        await planRef.set(
-          {
-            ...planData,
-            'exercises': updatedExercises,
-          },
-          SetOptions(merge: true),
-        );
+        await _applyNextWeightsToAllPlans(userId: userId, nextWeights: nextWeights);
       }
 
       final cacheList = planForCache ?? planned;
-      await _cachePlan(planId, cacheList, null);
+      await _cachePlan(planId, cacheList, null, templateId: null);
       await _cacheRecentExercises(cacheList);
     } catch (e, stack) {
       final inner = _innerError(e);
@@ -369,13 +394,19 @@ class ExerciseRepository {
     }
   }
 
-  Future<void> _cachePlan(String dayKey, List<PlannedExercise> plans, String? name) async {
+  Future<void> _cachePlan(
+    String dayKey,
+    List<PlannedExercise> plans,
+    String? name, {
+    String? templateId,
+  }) async {
     try {
       final box = await _openBox(todayPlanBox);
       await box.put(
         'plans_$dayKey',
         {
           'name': name,
+          'templateId': templateId,
           'list': plans.map((e) => e.toMap()).toList(),
         },
       );
@@ -387,21 +418,73 @@ class ExerciseRepository {
   Future<DayPlan> _readCachedPlan(String dayKey) async {
     try {
       if (!await hive.boxExists(todayPlanBox)) {
-        return DayPlan(dayKey: dayKey, exercises: const [], name: null);
+        return DayPlan(dayKey: dayKey, exercises: const [], name: null, templateId: null);
       }
       final box = await _openBox(todayPlanBox);
       final cached = box.get('plans_$dayKey');
       if (cached is Map) {
         final name = cached['name'] as String?;
+        final templateId = cached['templateId'] as String?;
         final list = cached['list'] as List?;
         final plans = (list ?? [])
             .map((e) => PlannedExercise.fromMap(Map<String, dynamic>.from(e as Map)))
             .toList();
-        return DayPlan(dayKey: dayKey, exercises: plans, name: name);
+        return DayPlan(dayKey: dayKey, exercises: plans, name: name, templateId: templateId);
       }
-      return DayPlan(dayKey: dayKey, exercises: const [], name: null);
+      return DayPlan(dayKey: dayKey, exercises: const [], name: null, templateId: null);
     } catch (_) {
-      return DayPlan(dayKey: dayKey, exercises: const [], name: null);
+      return DayPlan(dayKey: dayKey, exercises: const [], name: null, templateId: null);
+    }
+  }
+
+  Future<void> _applyNextWeightsToAllPlans({
+    required String userId,
+    required Map<String, double?> nextWeights,
+  }) async {
+    final snap = await _plansRef(userId).get();
+    if (snap.docs.isEmpty) return;
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final exercises = (data['exercises'] as List?) ?? [];
+      if (exercises.isEmpty) continue;
+
+      var changed = false;
+      final updatedExercises = exercises.map((e) {
+        final exercise = Map<String, dynamic>.from(e as Map);
+        final id = exercise['exerciseId'] as String? ?? '';
+        if (nextWeights.containsKey(id)) {
+          final weight = nextWeights[id];
+          final type = exercise['type'] as String? ?? 'weight';
+          if (type == 'time') {
+            exercise['seconds'] = weight?.toInt();
+            exercise['nextWeight'] = null;
+            exercise['weight'] = null;
+          } else {
+            exercise['weight'] = weight;
+            exercise['nextWeight'] = weight;
+          }
+          changed = true;
+        }
+        return exercise;
+      }).toList();
+
+      if (!changed) continue;
+
+      await _plansRef(userId).doc(doc.id).set(
+        {
+          'exercises': updatedExercises,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      final updatedPlanned = updatedExercises
+          .map((e) => PlannedExercise.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      final name = data['name'] as String?;
+      final templateId = data['templateId'] as String?;
+      await _cachePlan(doc.id, updatedPlanned, name, templateId: templateId);
     }
   }
 

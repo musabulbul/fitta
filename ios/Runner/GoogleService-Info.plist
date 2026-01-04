@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>1059312799046-25dnhgdnueuh5bdt5fbo2u806econv4t.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.1059312799046-25dnhgdnueuh5bdt5fbo2u806econv4t</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCDdheExYOkq5ZZfxWZFjK3e7CxZMCeC58</string>
 	<key>GCM_SENDER_ID</key>
@@ -9,7 +13,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.fitta</string>
+	<string>com.mebs.fitta</string>
 	<key>PROJECT_ID</key>
 	<string>fittamebs</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1059312799046:ios:a6d72c3607231d3774e947</string>
+	<string>1:1059312799046:ios:10bbc62d9dca414d74e947</string>
 </dict>
 </plist>

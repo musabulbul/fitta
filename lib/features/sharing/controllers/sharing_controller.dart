@@ -9,15 +9,23 @@ class SharingController extends GetxController {
     required this.repository,
     required this.ownerUserId,
     required this.currentUserEmail,
+    required this.ownerDisplayName,
+    required this.ownerPhotoUrl,
   });
 
   final SharingRepository repository;
   final String ownerUserId;
   final String currentUserEmail;
+  final String ownerDisplayName;
+  final String ownerPhotoUrl;
 
   final isLoading = false.obs;
   final emailInput = ''.obs;
   final selectedRole = 'trainer'.obs;
+  final sharePhoto = true.obs;
+  final shareWorkouts = true.obs;
+  final shareWeight = true.obs;
+  final shareMeasurements = true.obs;
 
   final sharedWith = <SharePermission>[].obs;
   final clients = <ClientLink>[].obs;
@@ -60,10 +68,31 @@ class SharingController extends GetxController {
         return;
       }
 
+      if (![sharePhoto.value, shareWorkouts.value, shareWeight.value, shareMeasurements.value]
+          .any((v) => v)) {
+        Get.snackbar('Eksik bilgi', 'Lütfen en az bir paylaşım türü seçin',
+            snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+
+      final summary = await repository.getUserSummary(targetUserId);
+      final targetDisplayName = summary['displayName'] ?? '';
+      final targetEmail =
+          (summary['email']?.isNotEmpty == true) ? summary['email']! : email.toLowerCase();
+
       await repository.addSharePermission(
         ownerUserId: ownerUserId,
         targetUserId: targetUserId,
+        ownerEmail: currentUserEmail.toLowerCase(),
+        targetDisplayName: targetDisplayName,
+        targetEmail: targetEmail,
         role: selectedRole.value,
+        sharePhoto: sharePhoto.value,
+        shareWorkouts: shareWorkouts.value,
+        shareWeight: shareWeight.value,
+        shareMeasurements: shareMeasurements.value,
+        ownerDisplayName: ownerDisplayName,
+        ownerPhotoUrl: sharePhoto.value ? ownerPhotoUrl : '',
       );
       Get.snackbar('Paylaşıldı', 'Yetki eklendi', snackPosition: SnackPosition.BOTTOM);
       emailInput.value = '';

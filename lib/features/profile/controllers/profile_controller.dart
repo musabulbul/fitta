@@ -14,6 +14,8 @@ class ProfileController extends GetxController {
   final user = Rxn<User>();
   final userName = ''.obs;
   final photoUrl = ''.obs;
+  final trainerMode = false.obs;
+  final isAdmin = false.obs;
   final isLoading = false.obs;
 
   @override
@@ -27,6 +29,7 @@ class ProfileController extends GetxController {
     if (u == null) {
       userName.value = '';
       photoUrl.value = '';
+      isAdmin.value = false;
       return;
     }
     try {
@@ -35,12 +38,34 @@ class ProfileController extends GetxController {
         final data = doc.data();
         userName.value = data?['displayName'] ?? u.displayName ?? 'Kullanıcı';
         photoUrl.value = data?['photoUrl'] ?? u.photoURL ?? '';
+        trainerMode.value = data?['trainerMode'] == true;
+        final role = (data?['role'] as String?)?.toLowerCase();
+        isAdmin.value = data?['isAdmin'] == true || role == 'admin';
       } else {
         userName.value = u.displayName ?? 'Kullanıcı';
         photoUrl.value = u.photoURL ?? '';
+        trainerMode.value = false;
+        isAdmin.value = false;
       }
     } catch (e) {
       debugPrint('Profile load error: $e');
+      isAdmin.value = false;
+    }
+  }
+
+  Future<void> setTrainerMode(bool enabled) async {
+    final u = _auth.currentUser;
+    if (u == null) return;
+
+    trainerMode.value = enabled;
+    try {
+      await _firestore.collection('users').doc(u.uid).set({
+        'trainerMode': enabled,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      trainerMode.value = !enabled;
+      Get.snackbar('Hata', 'Antrenör modu güncellenemedi: $e',
+          snackPosition: SnackPosition.BOTTOM);
     }
   }
 

@@ -7,14 +7,16 @@ import 'features/profile/views/profile_page.dart';
 import 'features/weight/views/weight_page.dart';
 
 class FittaShell extends StatefulWidget {
-  const FittaShell({super.key});
+  const FittaShell({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<FittaShell> createState() => _FittaShellState();
 }
 
 class _FittaShellState extends State<FittaShell> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final List<Widget> _pages = const [
     ExercisesPage(),
@@ -22,6 +24,13 @@ class _FittaShellState extends State<FittaShell> {
     MeasurementsPage(),
     ProfilePage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex =
+        widget.initialIndex.clamp(0, _pages.length - 1).toInt();
+  }
 
   void _onTabSelected(int index) {
     setState(() {

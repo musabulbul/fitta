@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitta/core/widgets/fitta_app_bar.dart';
 import 'package:fitta/core/widgets/fitta_card.dart';
 import 'package:fitta/core/utils/app_spacing.dart';
@@ -16,7 +17,7 @@ class PackagesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(PackageController(repository: PackageRepository()));
+    final controller = _provideController();
 
     return Scaffold(
       appBar: const FittaAppBar(title: 'Hazır Paketlerim'),
@@ -207,5 +208,15 @@ class PackagesPage extends StatelessWidget {
     } catch (e) {
       Get.snackbar('Hata', 'Gönderilemedi: $e');
     }
+  }
+
+  PackageController _provideController() {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+    if (Get.isRegistered<PackageController>()) {
+      final existing = Get.find<PackageController>();
+      if (existing.userId == userId) return existing;
+      Get.delete<PackageController>();
+    }
+    return Get.put(PackageController(repository: PackageRepository(), userId: userId));
   }
 }

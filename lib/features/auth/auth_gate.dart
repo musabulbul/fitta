@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../shell.dart';
+import '../../trainer_shell.dart';
 import 'auth_page.dart';
 
 class AuthGate extends StatelessWidget {
@@ -20,7 +22,21 @@ class AuthGate extends StatelessWidget {
         if (!snapshot.hasData) {
           return const AuthPage();
         }
-        return const FittaShell();
+        final user = snapshot.data!;
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream:
+              FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+          builder: (context, userSnap) {
+            if (userSnap.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final data = userSnap.data?.data();
+            final trainerMode = data?['trainerMode'] == true;
+            return trainerMode ? const TrainerShell() : const FittaShell();
+          },
+        );
       },
     );
   }

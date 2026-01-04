@@ -189,6 +189,8 @@ class ExerciseController extends GetxController {
 
     final logs = logsByExerciseId[exerciseId] ?? <SetLog>[];
     final next = nextWeights[exerciseId];
+    final nextUpdates =
+        _hasNextWeightChanged(plan, next) ? {exerciseId: next} : <String, double?>{};
 
     try {
       await repository.saveWorkoutSession(
@@ -197,7 +199,7 @@ class ExerciseController extends GetxController {
         date: DateTime.now(),
         planned: [plan],
         logsByExerciseId: {exerciseId: logs},
-        nextWeights: {exerciseId: next},
+        nextWeights: nextUpdates,
         planForCache: todayPlan.toList(),
       );
       savedExercises[exerciseId] = true;
@@ -220,13 +222,20 @@ class ExerciseController extends GetxController {
     isLoading.value = true;
     try {
       final planId = selectedDayKey.value;
+      final nextUpdates = <String, double?>{};
+      for (final plan in todayPlan) {
+        final next = nextWeights[plan.exerciseId];
+        if (_hasNextWeightChanged(plan, next)) {
+          nextUpdates[plan.exerciseId] = next;
+        }
+      }
       await repository.saveWorkoutSession(
         userId: userId,
         planId: planId,
         date: DateTime.now(),
         planned: todayPlan,
         logsByExerciseId: Map<String, List<SetLog>>.from(logsByExerciseId),
-        nextWeights: Map<String, double?>.from(nextWeights),
+        nextWeights: nextUpdates,
       );
       Get.snackbar('Başarılı', 'Antrenman kaydedildi', snackPosition: SnackPosition.BOTTOM);
       await loadPlanForSelectedDay();
@@ -278,5 +287,14 @@ class ExerciseController extends GetxController {
       } catch (_) {}
     } catch (_) {}
     return buffer.toString();
+  }
+
+  bool _hasNextWeightChanged(PlannedExercise plan, double? next) {
+    if (plan.type == 'time') {
+      final current = (plan.seconds ?? plan.reps).toDouble();
+      return next != current;
+    }
+    final current = plan.nextWeight ?? plan.weight;
+    return next != current;
   }
 }

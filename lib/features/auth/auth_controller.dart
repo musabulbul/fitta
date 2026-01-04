@@ -23,10 +23,13 @@ class AuthController extends GetxController {
     });
   }
 
-  Future<void> signUp(String email, String password) async {
+  Future<void> signUp(String email, String password, {required String displayName}) async {
     await _guard(() async {
       final cred = await service.signUpWithEmail(email, password);
-      await _ensureUserDocument(cred.user);
+      if (cred.user != null && displayName.trim().isNotEmpty) {
+        await cred.user!.updateDisplayName(displayName.trim());
+      }
+      await _ensureUserDocument(cred.user, displayName: displayName.trim());
     });
   }
 
@@ -63,14 +66,16 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> _ensureUserDocument(User? user) async {
+  Future<void> _ensureUserDocument(User? user, {String? displayName}) async {
     if (user == null) return;
     final firestore = FirebaseFirestore.instance;
     final ref = firestore.collection('users').doc(user.uid);
     final snap = await ref.get();
     final data = <String, dynamic>{
       'email': user.email?.toLowerCase(),
-      'displayName': user.displayName,
+      'displayName': (displayName?.isNotEmpty == true)
+          ? displayName
+          : (user.displayName?.isNotEmpty == true ? user.displayName : null),
       'updatedAt': FieldValue.serverTimestamp(),
     };
     if (!snap.exists) {

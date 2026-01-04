@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fitta</string>
+	<string>Fitta</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -45,5 +45,13 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Uygulama, kullanıcı tarafından seçilen fotoğrafları yüklemek ve görüntülemek için fotoğraf kitaplığına erişir.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Fotoğraf çekme özelliği için kamera erişimi gereklidir.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Uygulama tarafından oluşturulan görselleri kaydetmek için gereklidir.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
