@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1059312799046-8j7v1mpeqbj9np8094idnhidhln4od2b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mebs.fitta",
+            "certificate_hash": "b761ca1a5bd5f9fc08c6ea21bc0476ba596a9b33"
+          }
+        },
+        {
           "client_id": "1059312799046-8rs7g66j3004i2vbg0cho1e54bd12bvr.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

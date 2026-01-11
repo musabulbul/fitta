@@ -60,20 +60,20 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCDdheExYOkq5ZZfxWZFjK3e7CxZMCeC58',
-    appId: '1:1059312799046:ios:a6d72c3607231d3774e947',
+    appId: '1:1059312799046:ios:10bbc62d9dca414d74e947',
     messagingSenderId: '1059312799046',
     projectId: 'fittamebs',
     storageBucket: 'fittamebs.firebasestorage.app',
-    iosBundleId: 'com.example.fitta',
+    iosBundleId: 'com.mebs.fitta',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCDdheExYOkq5ZZfxWZFjK3e7CxZMCeC58',
-    appId: '1:1059312799046:ios:a6d72c3607231d3774e947',
+    appId: '1:1059312799046:ios:10bbc62d9dca414d74e947',
     messagingSenderId: '1059312799046',
     projectId: 'fittamebs',
     storageBucket: 'fittamebs.firebasestorage.app',
-    iosBundleId: 'com.example.fitta',
+    iosBundleId: 'com.mebs.fitta',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
