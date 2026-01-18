@@ -1,8 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permissions for Location, Audio, and Apps -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="Fitta"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="YOUR_API_KEY_HERE"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,6 +52,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- For device_apps package -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
         </intent>
     </queries>
 </manifest>

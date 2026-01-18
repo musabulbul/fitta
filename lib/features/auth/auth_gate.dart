@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../shell.dart';
 import '../../trainer_shell.dart';
 import 'auth_page.dart';
+import '../child_tracking/views/parent_dashboard.dart';
+import '../child_tracking/views/child_dashboard.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -33,6 +35,14 @@ class AuthGate extends StatelessWidget {
               );
             }
             final data = userSnap.data?.data();
+
+            final role = data?['role'];
+            if (role == 'child') {
+              return const ChildDashboard();
+            } else if (role == 'parent') {
+              return const ParentDashboard();
+            }
+
             final trainerMode = data?['trainerMode'] == true;
             return trainerMode ? const TrainerShell() : const FittaShell();
           },

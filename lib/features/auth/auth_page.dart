@@ -21,6 +21,7 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true;
+  String _selectedRole = 'parent';
 
   late final AuthController authController;
 
@@ -47,7 +48,7 @@ class _AuthPageState extends State<AuthPage> {
       if (_isLogin) {
         await authController.signIn(email, password);
       } else {
-        await authController.signUp(email, password, displayName: name);
+        await authController.signUp(email, password, displayName: name, role: _selectedRole);
       }
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? 'Giriş başarısız');
@@ -114,6 +115,21 @@ class _AuthPageState extends State<AuthPage> {
                                 validator: (v) => (!_isLogin && (v == null || v.trim().isEmpty))
                                     ? 'Ad soyad girin'
                                     : null,
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                value: _selectedRole,
+                                decoration: const InputDecoration(
+                                  labelText: 'Hesap Türü',
+                                  prefixIcon: Icon(CupertinoIcons.person_2),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'parent', child: Text('Ebeveyn (Takip Eden)')),
+                                  DropdownMenuItem(value: 'child', child: Text('Çocuk (Takip Edilen)')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _selectedRole = val);
+                                },
                               ),
                               const SizedBox(height: 12),
                             ],

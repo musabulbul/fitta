@@ -23,13 +23,13 @@ class AuthController extends GetxController {
     });
   }
 
-  Future<void> signUp(String email, String password, {required String displayName}) async {
+  Future<void> signUp(String email, String password, {required String displayName, String role = 'parent'}) async {
     await _guard(() async {
       final cred = await service.signUpWithEmail(email, password);
       if (cred.user != null && displayName.trim().isNotEmpty) {
         await cred.user!.updateDisplayName(displayName.trim());
       }
-      await _ensureUserDocument(cred.user, displayName: displayName.trim());
+      await _ensureUserDocument(cred.user, displayName: displayName.trim(), role: role);
     });
   }
 
@@ -66,7 +66,7 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> _ensureUserDocument(User? user, {String? displayName}) async {
+  Future<void> _ensureUserDocument(User? user, {String? displayName, String? role}) async {
     if (user == null) return;
     final firestore = FirebaseFirestore.instance;
     final ref = firestore.collection('users').doc(user.uid);
@@ -83,6 +83,9 @@ class AuthController extends GetxController {
       data['provider'] = user.providerData.isNotEmpty
           ? user.providerData.first.providerId
           : 'password';
+      if (role != null) {
+        data['role'] = role;
+      }
     }
     await ref.set(data, SetOptions(merge: true));
   }
